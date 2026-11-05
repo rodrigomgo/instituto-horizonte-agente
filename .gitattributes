@@ -1,0 +1,21 @@
+# Normaliza arquivos de texto do projeto entre Windows e outros sistemas.
+* text=auto
+
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.example text eol=lf
+*.ps1 text eol=crlf
+
+# Os dados oficiais devem manter seus bytes originais.
+data/*.json -text
+data/*.csv -text
+
+# Formatos binários comuns.
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.pdf -text
+*.docx -text
+*.zip -text
