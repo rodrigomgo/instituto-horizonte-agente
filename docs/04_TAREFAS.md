@@ -5,8 +5,8 @@
 
 | Task | Escopo | RF vinculados | Teste principal | Estimativa | Estado |
 |---|---|---|---|---:|---|
-| TSK-001 | Estrutura Python, VS Code, venv, `.env.example`, `.gitignore`, config | RNF-01/02/06 | Instalação limpa e config inválida | 1–2h | Pendente |
-| TSK-002 | Smoke test Groq: Tool Calling + saída Pydantic, erros e versões | RF-08/09 | Chamada real + teste sem chave | 1–2h | Pendente |
+| TSK-001 | Estrutura Python, VS Code, venv, `.env.example`, `.gitignore`, config | RNF-01/02/06 | Instalação limpa e config inválida | 1–2h | Concluída |
+| TSK-002 | Smoke test Groq: Tool Calling + saída Pydantic, erros e versões | RF-08/09 | Chamada real + teste sem chave | 1–2h | Concluída |
 | TSK-003 | Loader/validação de 12 registros JSON e indexação idempotente | RF-01/02 | 12 IDs únicos e metadata | 1–2h | Pendente |
 | TSK-004 | Chroma/FastEmbed + `buscar_normas`, logs de retrieval | RF-01/02/03/09 | T01–T03/T06–T09 | 2–3h | Pendente |
 | TSK-005 | SQLite e seed reexecutável para SOL-1001 | RF-04/06 | Consulta SQL e seed duplicado | 1–2h | Pendente |
