@@ -1,4 +1,4 @@
-"""Configuração tipada, carregada exclusivamente de variáveis de ambiente."""
+"""Configuração tipada e carregamento explícito do ``.env`` local."""
 
 from __future__ import annotations
 
@@ -7,14 +7,31 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
+
+
+RAIZ_PROJETO = Path(__file__).resolve().parents[2]
+
+
+def caminho_dotenv(raiz_projeto: Path | None = None) -> Path:
+    """Resolve o ``.env`` a partir da raiz, nunca do diretório corrente."""
+
+    raiz = RAIZ_PROJETO if raiz_projeto is None else raiz_projeto
+    return raiz.resolve() / ".env"
+
+
+def carregar_dotenv_projeto(raiz_projeto: Path | None = None) -> bool:
+    """Carrega explicitamente o ``.env``; o ambiente existente tem prioridade."""
+
+    return load_dotenv(dotenv_path=caminho_dotenv(raiz_projeto), override=False)
 
 
 class Configuracao(BaseModel):
     """Configurações previstas pelos documentos SDD.
 
-    A chave Groq permanece opcional na TSK-001. A TSK-002 deverá exigi-la
-    somente nos comandos que realizarem integração externa.
+    A chave Groq é opcional na configuração geral e exigida somente pelos
+    comandos que realizam integração externa.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -47,7 +64,11 @@ class Configuracao(BaseModel):
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> Configuracao:
-        """Cria configuração a partir do ambiente, sem ler arquivos ``.env``."""
+        """Cria configuração a partir do mapping informado ou do ambiente atual.
+
+        Esta função não carrega ``.env`` implicitamente. Os pontos de entrada
+        devem chamar :func:`carregar_dotenv_projeto` quando desejarem esse apoio.
+        """
 
         source = os.environ if environ is None else environ
         mapping = {

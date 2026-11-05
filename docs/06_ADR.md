@@ -8,12 +8,14 @@
 **Motivo:** concentra esforço em RAG, LangChain, LangGraph e evidências — itens pontuados.  
 **Consequência:** testes devem comprovar experiência multimensagem sem frontend.
 
-## ADR-002 — Groq como provedor inicial, substituível (Aceita sob validação)
+## ADR-002 — Groq como provedor inicial, substituível (Aceita e validada)
 
 **Contexto:** serviço remoto reduz exigência de hardware; conta gratuita pode ter limitação.  
 **Decisão:** `ChatGroq`, modelo inicial `openai/gpt-oss-120b`, com Tool Calling real e Structured Output testados antes de avançar.  
 **Alternativas:** Gemini API, outro modelo Groq compatível, OpenRouter, Ollama.  
 **Revisão obrigatória:** uma chamada real que execute Tool local e uma resposta validada como Pydantic. Sem sucesso nesse smoke test, escolher alternativa e registrar novo ADR. Não afirmar que a cota é garantida.
+
+**Validação registrada:** o estudante informou execução manual bem-sucedida com `openai/gpt-oss-120b`, Tool Calling de `somar_inteiros`, execução Python local, devolução do resultado ao modelo e Structured Output com os campos esperados. O Codex não repetiu essa chamada nem recebeu trace bruto; consulte `docs/evidencias_sdd/TSK-002.md`.
 
 ## ADR-003 — FastEmbed multilíngue + Chroma local (Aceita)
 
@@ -59,9 +61,16 @@
 **Decisão:** teste de instalação e API antes do RAG; commits por Task; relatório preenchido somente com saídas reais; não adicionar interface nem componentes extras sem necessidade.  
 **Consequência:** maior chance de entrega concluída dentro das 24–36 horas.
 
+## ADR-009 — Carregamento explícito de `.env` local (Aceita)
+
+**Contexto:** a TSK-001 aceitava apenas variáveis previamente definidas no ambiente. Para desenvolvimento local no Windows, o estudante solicitou suporte seguro e reproduzível a um `.env` não versionado.
+**Decisão:** usar `python-dotenv`; os pontos de entrada chamam explicitamente uma função que resolve `.env` pela raiz do projeto e usa `override=False`. Importar módulos não carrega arquivos. `Configuracao.from_env()` continua aceitando ambiente ou mapping sem depender de `.env`.
+**Alternativas:** manter somente variáveis temporárias; carregar automaticamente durante imports; usar `pydantic-settings`.
+**Motivo:** reduz atrito local preservando precedência do ambiente, testabilidade e ausência de efeitos colaterais na importação.
+**Consequência:** `.env` deve permanecer no `.gitignore`; testes usam diretórios temporários e ambiente isolado; mensagens e resumos não podem revelar a chave.
+
 ## Decisões ainda a validar na implementação
 
-- Funcionamento de `with_structured_output` no modelo Groq e pacote **realmente instalado**.
 - Distância mínima/critério de evidência do Chroma para perguntas sem resposta.
 - Uso de ToolNode para escrita versus nó especializado; ambos devem demonstrar execução de Tool tipada, controle no backend e tracing.
 - Versões fixadas de dependências e instruções executáveis no Windows.

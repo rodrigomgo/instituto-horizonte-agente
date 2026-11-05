@@ -8,7 +8,11 @@ from collections.abc import Sequence
 
 from pydantic import ValidationError
 
-from instituto_horizonte.config import Configuracao, formatar_erros_configuracao
+from instituto_horizonte.config import (
+    Configuracao,
+    carregar_dotenv_projeto,
+    formatar_erros_configuracao,
+)
 
 
 def criar_parser() -> argparse.ArgumentParser:
@@ -26,6 +30,7 @@ def criar_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = criar_parser().parse_args(argv)
+    carregar_dotenv_projeto()
     try:
         config = Configuracao.from_env()
     except ValidationError as error:

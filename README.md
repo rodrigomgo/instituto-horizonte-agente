@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — estrutura inicial da TSK-001.
-**Estado:** pacote Python e validação de configuração implementados; integrações ainda não implementadas.
+**Estado:** pacote Python, configuração e smoke test Groq da TSK-002 implementados.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -12,8 +12,9 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Comando local que exibe somente um resumo seguro da configuração.
 - Testes locais da configuração válida e inválida.
 - Arquivos de ambiente de exemplo e exclusões para segredos e artefatos.
+- Smoke test reproduzível de Tool Calling local e Structured Output Pydantic via Groq.
 
-Não existem ainda LLM, RAG, Tools, LangGraph, SQLite nem execução dos dez cenários. Esses itens pertencem às Tasks posteriores.
+Não existem ainda RAG, Tools definitivas, LangGraph, SQLite nem execução dos dez cenários. Esses itens pertencem às Tasks posteriores.
 
 ## Conteúdo de referência
 
@@ -49,7 +50,16 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m instituto_horizonte
 ```
 
-O arquivo `.env.example` documenta as variáveis previstas. Na TSK-001 o pacote lê somente variáveis já presentes no ambiente e **não carrega `.env` automaticamente**. Não copie uma chave real para arquivos versionados.
+O arquivo `.env.example` documenta as variáveis previstas. Os pontos de entrada carregam explicitamente o arquivo `.env` da raiz do projeto; a importação dos módulos, por si só, não altera o ambiente. Variáveis já definidas no sistema têm prioridade sobre o arquivo local.
+
+Para desenvolvimento local, crie o arquivo ignorado pelo Git e preencha a chave em um editor, nunca no comando:
+
+```powershell
+Copy-Item .env.example .env
+code .env
+```
+
+Não versione nem compartilhe `.env`. A ausência desse arquivo é aceita e configurações fornecidas diretamente pelo ambiente continuam funcionando.
 
 ## Validar configuração
 
@@ -74,17 +84,52 @@ $env:MAX_AGENT_ROUNDS = "6"
 python -m instituto_horizonte
 ```
 
-## Testes da TSK-001
+## Smoke test Groq da TSK-002
+
+Opção sem `.env`: defina temporariamente a chave sem colocá-la no comando nem no histórico do PowerShell:
 
 ```powershell
-python -m pytest -q
+$chaveSegura = Read-Host "GROQ_API_KEY" -AsSecureString
+$ponte = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($chaveSegura)
+try {
+    $env:GROQ_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ponte)
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ponte)
+}
+python scripts/smoke_test_llm.py
+Remove-Item Env:GROQ_API_KEY
 ```
 
-Os testes cobrem valores padrão, conversão de variáveis, rejeição de limites inválidos e ocultação da chave. Eles não fazem chamadas externas.
+O script faz chamadas reais e separadas:
+
+1. o LLM solicita a Tool demonstrativa `somar_inteiros` com argumentos tipados;
+2. o Python executa localmente a soma, sem escrita, e envia o resultado de volta;
+3. o LLM produz uma resposta final;
+4. outra chamada usa JSON Schema estrito e valida `SaidaEstruturadaSmoke` com Pydantic.
+
+O script não imprime a chave nem a mensagem bruta de exceções do provedor.
+
+## Testes locais sem rede
+
+```powershell
+python -m pytest -q -p no:cacheprovider
+```
+
+Os testes cobrem configuração, fluxo mock de Tool Calling, ausência de chave, HTTP 401, timeout, HTTP 429, saída estruturada inválida e ocultação da chave. Eles não fazem chamadas externas.
+
+## Versões validadas na TSK-002
+
+- Python 3.12.10;
+- `langchain-groq==1.1.3`;
+- `langchain-core==1.7.6` (dependência transitiva observada);
+- `groq==0.37.1` (dependência transitiva observada);
+- `pydantic==2.14.3`;
+- `python-dotenv==1.2.4`;
+- `pytest==8.4.2`.
 
 ## Stack planejada para Tasks posteriores
 
-Groq API (`openai/gpt-oss-120b`, sujeito a verificação); LangChain; LangGraph; FastEmbed multilíngue; Chroma local persistente e SQLite. Nenhuma dessas integrações foi adicionada na TSK-001.
+LangGraph, FastEmbed multilíngue, Chroma local persistente e SQLite ainda não foram adicionados.
 
 ## Restrições de origem
 
@@ -92,7 +137,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-Após revisão humana da TSK-001, a TSK-002 deve realizar o smoke test real de Groq, Tool Calling e Structured Output. Não avance para a orquestração antes desse gate técnico.
+Somente após revisão humana das evidências reais da TSK-002, iniciar a TSK-003. Não avançar para RAG ou orquestração antes da aprovação desse gate técnico.
 
 ## Referências de rastreabilidade
 
