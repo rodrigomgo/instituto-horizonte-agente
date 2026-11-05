@@ -1,0 +1,98 @@
+[
+  {
+    "id": "ACAD-001",
+    "titulo": "Declaração de matrícula",
+    "categoria": "documentos",
+    "fonte": "ACAD-001",
+    "conteudo": "A declaração de matrícula é solicitada pelo portal acadêmico, na área Documentos. O prazo institucional para disponibilização é de até 3 dias úteis após a confirmação da solicitação. Em caso de falha no portal, registrar solicitação ao atendimento acadêmico.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-002",
+    "titulo": "Frequência mínima e certificação",
+    "categoria": "certificacao",
+    "fonte": "ACAD-002",
+    "conteudo": "Para obtenção do certificado de conclusão de módulo, é necessária frequência mínima de 75% nas atividades com presença registrada, além do cumprimento das avaliações previstas no plano de ensino. Exceções precisam de decisão formal da coordenação.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-003",
+    "titulo": "Revisão de nota",
+    "categoria": "avaliacao",
+    "fonte": "ACAD-003",
+    "conteudo": "O estudante pode solicitar revisão de nota em até 5 dias corridos após a divulgação do resultado no portal acadêmico. O pedido deve indicar disciplina, atividade e fundamentação objetiva. A revisão não assegura aumento da nota.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-004",
+    "titulo": "Calendário e prazos acadêmicos",
+    "categoria": "calendario",
+    "fonte": "ACAD-004",
+    "conteudo": "Datas de provas, atividades e entregas são publicadas no calendário específico da turma. Em caso de divergência entre comunicados, o calendário vigente divulgado pela coordenação é a referência. O assistente não deve inventar datas que não estejam disponíveis.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-005",
+    "titulo": "Emissão e segunda via de certificado",
+    "categoria": "certificacao",
+    "fonte": "ACAD-005",
+    "conteudo": "Após aprovação e integralização das obrigações acadêmicas, o estudante pode solicitar certificado pelo portal. A segunda via deve ser registrada no atendimento, com identificação da turma e justificativa. O prazo de emissão depende da validação da secretaria e é informado no protocolo.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-006",
+    "titulo": "Segurança de credenciais",
+    "categoria": "seguranca",
+    "fonte": "ACAD-006",
+    "conteudo": "O estudante não deve compartilhar senha, código de autenticação nem token de acesso com colegas ou colaboradores. Em caso de suspeita de comprometimento, deve trocar a senha pelo canal oficial e comunicar o suporte.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-007",
+    "titulo": "Biblioteca digital",
+    "categoria": "servicos",
+    "fonte": "ACAD-007",
+    "conteudo": "O acesso à biblioteca digital ocorre por autenticação no portal acadêmico e pela seção Biblioteca. Caso a autenticação falhe, o estudante deve registrar ocorrência com mensagem de erro e horário aproximado da tentativa, sem enviar senha.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-008",
+    "titulo": "Trancamento e cancelamento",
+    "categoria": "matricula",
+    "fonte": "ACAD-008",
+    "conteudo": "Solicitações de trancamento ou cancelamento devem ser abertas pelo portal ou atendimento acadêmico. A análise depende das regras contratuais e do estágio do curso. O assistente deve orientar o canal oficial e não prometer aprovação automática.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-009",
+    "titulo": "Cobrança e comprovantes",
+    "categoria": "financeiro",
+    "fonte": "ACAD-009",
+    "conteudo": "Dúvidas sobre cobranças, pagamentos e comprovantes devem ser direcionadas ao setor financeiro pelo portal. O solicitante deve informar a competência ou referência da cobrança, sem transmitir dados bancários sensíveis em canais não oficiais.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-010",
+    "titulo": "Suporte à plataforma de aulas",
+    "categoria": "suporte",
+    "fonte": "ACAD-010",
+    "conteudo": "Falhas no ambiente virtual de aprendizagem devem ser verificadas com teste de conexão, atualização do navegador e tentativa em janela privada. Persistindo o erro, registrar solicitação informando disciplina, horário e captura da mensagem de erro, sem credenciais.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-011",
+    "titulo": "Ouvidoria e manifestações",
+    "categoria": "atendimento",
+    "fonte": "ACAD-011",
+    "conteudo": "Reclamações formais e sugestões podem ser registradas pelo canal de ouvidoria no portal institucional. O protocolo permite acompanhar o tratamento. O agente não deve afirmar resolução sem consulta ao sistema de solicitações.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  },
+  {
+    "id": "ACAD-012",
+    "titulo": "Uso responsável de IA em atividades",
+    "categoria": "integridade",
+    "fonte": "ACAD-012",
+    "conteudo": "O uso de ferramentas de IA em atividades acadêmicas deve respeitar orientações específicas do docente, citar referências quando pertinente e preservar a autoria intelectual. A entrega de conteúdo gerado sem revisão crítica e sem conformidade com as regras da atividade pode caracterizar infração acadêmica.",
+    "instituicao": "Instituto Horizonte (fictício)"
+  }
+]
