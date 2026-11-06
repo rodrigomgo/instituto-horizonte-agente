@@ -195,6 +195,20 @@ class DatabaseTests(unittest.TestCase):
             ).fetchone()
         self.assertIsNone(tabela)
 
+    def test_falha_ao_criar_diretorio_retorna_erro_sanitizado(self) -> None:
+        mensagem_sensivel = "caminho privado e conteudo sensivel"
+        with (
+            patch.object(Path, "mkdir", side_effect=PermissionError(mensagem_sensivel)),
+            self.assertRaises(ErroBanco) as contexto,
+        ):
+            inicializar_banco(self.caminho)
+
+        mensagem = str(contexto.exception)
+        self.assertIn("Falha ao preparar diretório do SQLite", mensagem)
+        self.assertIn("PermissionError", mensagem)
+        self.assertNotIn(mensagem_sensivel, mensagem)
+        self.assertFalse(self.caminho.exists())
+
     def test_resolve_caminho_relativo_independente_do_cwd(self) -> None:
         outro_cwd = Path(self.temp.name)
         cwd_original = Path.cwd()

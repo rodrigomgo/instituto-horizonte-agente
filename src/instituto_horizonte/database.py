@@ -152,7 +152,12 @@ def inicializar_banco(caminho_configurado: Path) -> ResumoBanco:
     """Cria schema e fixture em uma transação, sem atualizar dados existentes."""
 
     caminho = resolver_caminho_sqlite(caminho_configurado)
-    caminho.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise ErroBanco(
+            f"Falha ao preparar diretório do SQLite ({type(error).__name__})."
+        ) from None
     conexao: sqlite3.Connection | None = None
     try:
         conexao = sqlite3.connect(caminho, isolation_level=None)
