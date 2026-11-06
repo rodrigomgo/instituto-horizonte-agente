@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from instituto_horizonte.config import carregar_dotenv_projeto
 from instituto_horizonte.retrieval import (
     ErroRecuperacao,
     configuracao_rag_do_ambiente,
@@ -12,6 +13,7 @@ from instituto_horizonte.retrieval import (
 
 
 def main() -> int:
+    carregar_dotenv_projeto()
     try:
         resultado = indexar_documentos(configuracao_rag_do_ambiente())
     except ErroRecuperacao as error:

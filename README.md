@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
-**Versão:** 0.1 — estrutura inicial da TSK-001.
-**Estado:** TSK-001, TSK-002 e TSK-003 concluídas; loader acadêmico validado.
+**Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
+**Estado:** TSK-001 a TSK-004 concluídas; RAG local com FastEmbed, Chroma e `buscar_normas` validado.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -13,8 +13,11 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Testes locais da configuração válida e inválida.
 - Arquivos de ambiente de exemplo e exclusões para segredos e artefatos.
 - Smoke test reproduzível de Tool Calling local e Structured Output Pydantic via Groq.
+- Loader validado dos 12 documentos acadêmicos oficiais.
+- Indexação Chroma persistente e idempotente com FastEmbed local.
+- Tool tipada `buscar_normas`, com distâncias brutas e logs sanitizados de recuperação.
 
-Não existem ainda RAG, Tools definitivas, LangGraph, SQLite nem execução dos dez cenários. Esses itens pertencem às Tasks posteriores.
+Ainda não existem SQLite, LangGraph, as Tools de protocolo/registro nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
 
 ## Conteúdo de referência
 
@@ -175,7 +178,7 @@ As distâncias retornadas são distâncias de cosseno brutas, não percentuais d
 
 ## Stack planejada para Tasks posteriores
 
-LangGraph, FastEmbed multilíngue, Chroma local persistente e SQLite ainda não foram adicionados.
+SQLite e LangGraph ainda não foram adicionados. FastEmbed multilíngue e Chroma local persistente foram validados na TSK-004.
 
 ## Restrições de origem
 
@@ -183,7 +186,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-004 está em revisão humana. Não iniciar TSK-005 nem avançar para LangGraph ou demais Tools antes dessa revisão.
+A TSK-004 foi concluída após revisão humana e correções técnicas. A próxima etapa planejada é a TSK-005, que implementará SQLite e o seed reexecutável do protocolo fictício `SOL-1001`; ela não faz parte desta entrega.
 
 ## Referências de rastreabilidade
 

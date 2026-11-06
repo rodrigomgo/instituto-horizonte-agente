@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from time import perf_counter
 
-from instituto_horizonte.config import RAIZ_PROJETO
+from instituto_horizonte.config import RAIZ_PROJETO, carregar_dotenv_projeto
 from instituto_horizonte.retrieval import (
     ErroRecuperacao,
     configuracao_rag_do_ambiente,
@@ -37,6 +37,7 @@ def carregar_perguntas(caminho: Path = CAMINHO_CENARIOS) -> dict[str, str]:
 
 
 def main() -> int:
+    carregar_dotenv_projeto()
     perguntas = carregar_perguntas()
     config = configuracao_rag_do_ambiente()
     avaliacoes: list[dict[str, object]] = []

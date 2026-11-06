@@ -170,6 +170,7 @@ def _validar_compatibilidade(
     metadata: Mapping[str, Any] | None,
     nome_modelo: str,
     dimensao: int,
+    configuracao_colecao: Mapping[str, Any] | None = None,
 ) -> None:
     esperada = _metadata_colecao(nome_modelo, dimensao)
     if metadata is None:
@@ -180,6 +181,15 @@ def _validar_compatibilidade(
                 "Coleção incompatível com o modelo, dimensão ou schema configurado. "
                 "Use outro CHROMA_DIR ou reindexe explicitamente; nenhum dado foi apagado."
             )
+    hnsw = configuracao_colecao.get("hnsw") if configuracao_colecao else None
+    espaco_efetivo = hnsw.get("space") if isinstance(hnsw, Mapping) else None
+    if espaco_efetivo is None:
+        espaco_efetivo = metadata.get("hnsw:space")
+    if espaco_efetivo != "cosine":
+        raise ErroRecuperacao(
+            "Coleção incompatível: a métrica vetorial efetiva deve ser cosine. "
+            "Use outro CHROMA_DIR ou reindexe explicitamente; nenhum dado foi apagado."
+        )
 
 
 def _cliente_chroma(diretorio: Path) -> chromadb.ClientAPI:
@@ -225,6 +235,13 @@ def indexar_documentos(
 ) -> ResultadoIndexacao:
     """Indexa por upsert e verifica os 12 IDs persistidos sem apagar dados."""
 
+    try:
+        preparados = preparar_documentos(carregar_documentos())
+    except Exception as error:
+        raise ErroRecuperacao(
+            f"Falha ao validar documentos antes da persistência ({type(error).__name__})."
+        ) from None
+
     diretorio = resolver_diretorio_chroma(config.chroma_dir)
     if embeddings is None:
         embeddings, dimensao = criar_embeddings_fastembed(config.embedding_model)
@@ -239,7 +256,12 @@ def indexar_documentos(
         nomes = _nomes_colecoes(client)
         if NOME_COLECAO in nomes:
             colecao = client.get_collection(NOME_COLECAO)
-            _validar_compatibilidade(colecao.metadata, config.embedding_model, dimensao)
+            _validar_compatibilidade(
+                colecao.metadata,
+                config.embedding_model,
+                dimensao,
+                colecao.configuration,
+            )
         else:
             colecao = client.create_collection(
                 NOME_COLECAO,
@@ -252,7 +274,6 @@ def indexar_documentos(
             embedding_function=embeddings,
             create_collection_if_not_exists=False,
         )
-        preparados = preparar_documentos(carregar_documentos())
         vectorstore.add_documents(
             documents=[_documento_langchain(documento) for documento in preparados],
             ids=[documento.id_estavel for documento in preparados],
@@ -312,7 +333,12 @@ def consultar_normas(
             if dimensao_embedding is None or dimensao_embedding <= 0:
                 raise ErroRecuperacao("Dimensão deve ser informada para embeddings injetados.")
             dimensao = dimensao_embedding
-        _validar_compatibilidade(colecao.metadata, config.embedding_model, dimensao)
+        _validar_compatibilidade(
+            colecao.metadata,
+            config.embedding_model,
+            dimensao,
+            colecao.configuration,
+        )
 
         vectorstore = Chroma(
             client=client,
@@ -356,7 +382,8 @@ def consultar_normas(
         ) from None
 
     LOGGER.info(
-        "retrieval concluído total=%d top_k=%d duracao_ms=%.3f",
+        "retrieval concluído ids=%s quantidade=%d top_k=%d duracao_ms=%.3f",
+        [resultado.id for resultado in resultados],
         len(resultados),
         entrada.top_k,
         duracao_ms,

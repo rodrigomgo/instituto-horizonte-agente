@@ -186,6 +186,63 @@ class RetrievalTests(unittest.TestCase):
         self.assertEqual(client.get_collection(NOME_COLECAO).count(), 12)
         client.close()
 
+    def test_base_invalida_nao_cria_colecao_persistente(self) -> None:
+        with (
+            patch(
+                "instituto_horizonte.retrieval.carregar_documentos",
+                side_effect=ValueError("conteudo invalido confidencial"),
+            ),
+            self.assertRaisesRegex(ErroRecuperacao, "antes da persistência"),
+        ):
+            self.indexar()
+
+        self.assertFalse(self.diretorio.exists())
+
+    def test_rejeita_metrica_incompativel_sem_modificar_colecao(self) -> None:
+        client = chromadb.PersistentClient(path=str(self.diretorio))
+        colecao = client.create_collection(
+            NOME_COLECAO,
+            metadata={
+                "embedding_model": self.config.embedding_model,
+                "embedding_dimension": self.embeddings.dimensao,
+                "schema_version": 1,
+            },
+        )
+        colecao.add(
+            ids=["sentinela"],
+            embeddings=[[0.0] * self.embeddings.dimensao],
+            documents=["registro que deve permanecer"],
+        )
+        configuracao_antes = colecao.configuration["hnsw"].copy()
+        client.close()
+
+        with self.assertRaisesRegex(ErroRecuperacao, "métrica vetorial"):
+            self.indexar()
+
+        client = chromadb.PersistentClient(path=str(self.diretorio))
+        try:
+            colecao = client.get_collection(NOME_COLECAO)
+            self.assertEqual(colecao.get(include=[])["ids"], ["sentinela"])
+            self.assertEqual(colecao.configuration["hnsw"], configuracao_antes)
+        finally:
+            client.close()
+
+    def test_log_de_recuperacao_expoe_ids_sem_pergunta_ou_conteudo(self) -> None:
+        self.indexar()
+        pergunta = "pergunta secreta que não deve ir ao log"
+
+        with self.assertLogs("instituto_horizonte.retrieval", level="INFO") as logs:
+            resposta = self.consultar(pergunta, top_k=2)
+
+        texto = "\n".join(logs.output)
+        for resultado in resposta.resultados:
+            self.assertIn(resultado.id, texto)
+            self.assertNotIn(resultado.conteudo, texto)
+        self.assertIn("quantidade=2", texto)
+        self.assertIn("top_k=2", texto)
+        self.assertIn("duracao_ms=", texto)
+        self.assertNotIn(pergunta, texto)
+
     def test_embedding_com_falha_retorna_erro_controlado(self) -> None:
         with self.assertRaisesRegex(ErroRecuperacao, "Falha ao indexar"):
             indexar_documentos(
