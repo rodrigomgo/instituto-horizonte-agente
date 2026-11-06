@@ -128,6 +128,41 @@ python -m pytest -q -p no:cacheprovider
 
 O script não requer `GROQ_API_KEY` nem acesso à internet. Ele exibe quantidade, IDs, categorias e hashes SHA-256 do campo `conteudo`, sem modificar os arquivos em `data/`.
 
+## Indexar e consultar normas — TSK-004
+
+Na primeira execução, o FastEmbed baixa aproximadamente 220 MB para `.local/fastembed_cache`. O índice Chroma persistente fica em `.local/chroma`; ambos são ignorados pelo Git e não usam Groq:
+
+```powershell
+python scripts/index_documents.py
+python scripts/index_documents.py  # repetição idempotente: permanece com 12 registros
+python scripts/evaluate_retrieval.py
+```
+
+Consulta direta pela Tool LangChain tipada:
+
+```powershell
+python -c "from instituto_horizonte.retrieval import buscar_normas; print(buscar_normas.invoke({'consulta': 'Qual é o prazo da declaração de matrícula?', 'top_k': 3}))"
+```
+
+Para usar outro diretório local sem alterar o padrão:
+
+```powershell
+$env:CHROMA_DIR = ".local/chroma-alternativo"
+python scripts/index_documents.py
+Remove-Item Env:CHROMA_DIR
+```
+
+Testes unitários usam embeddings falsos e não baixam modelos. A integração real é habilitada separadamente:
+
+```powershell
+python -m pytest -q -p no:cacheprovider
+$env:RUN_FASTEMBED_TESTS = "1"
+python -m pytest -q -p no:cacheprovider tests/test_fastembed_real.py
+Remove-Item Env:RUN_FASTEMBED_TESTS
+```
+
+As distâncias retornadas são distâncias de cosseno brutas, não percentuais de confiança. A TSK-004 não define limiar de abstenção.
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
@@ -148,7 +183,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-Iniciar exclusivamente a TSK-004: Chroma/FastEmbed e Tool `buscar_normas`, com calibração baseada em resultados reais. Não avançar para LangGraph, SQLite ou demais Tools fora da ordem do backlog.
+A TSK-004 está em revisão humana. Não iniciar TSK-005 nem avançar para LangGraph ou demais Tools antes dessa revisão.
 
 ## Referências de rastreabilidade
 
