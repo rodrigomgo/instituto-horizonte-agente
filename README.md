@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — estrutura inicial da TSK-001.
-**Estado:** pacote Python, configuração e smoke test Groq da TSK-002 implementados.
+**Estado:** TSK-001, TSK-002 e TSK-003 concluídas; loader acadêmico validado.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -148,7 +148,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-Somente após revisão humana das evidências reais da TSK-002, iniciar a TSK-003. Não avançar para RAG ou orquestração antes da aprovação desse gate técnico.
+Iniciar exclusivamente a TSK-004: Chroma/FastEmbed e Tool `buscar_normas`, com calibração baseada em resultados reais. Não avançar para LangGraph, SQLite ou demais Tools fora da ordem do backlog.
 
 ## Referências de rastreabilidade
 

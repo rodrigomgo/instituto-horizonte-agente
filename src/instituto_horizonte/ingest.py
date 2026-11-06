@@ -116,6 +116,10 @@ def carregar_documentos(caminho: Path = CAMINHO_BASE_OFICIAL) -> list[DocumentoA
         texto = caminho.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise ErroIngestao(f"Arquivo da base não encontrado: {caminho}.") from None
+    except UnicodeDecodeError:
+        raise ErroIngestao(
+            "Arquivo da base não contém texto UTF-8 válido."
+        ) from None
     except OSError as error:
         raise ErroIngestao(
             f"Não foi possível ler o arquivo da base ({type(error).__name__})."

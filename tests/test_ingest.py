@@ -175,6 +175,20 @@ class IngestaoDadosInvalidosTests(unittest.TestCase):
             with self.assertRaisesRegex(ErroIngestao, r"JSON malformado na linha 1"):
                 carregar_documentos(caminho)
 
+    def test_rejeita_bytes_utf8_invalidos_com_erro_controlado(self) -> None:
+        with TemporaryDirectory() as diretorio:
+            caminho = Path(diretorio) / "utf8-invalido.json"
+            caminho.write_bytes(b"[\xff]")
+
+            with self.assertRaises(ErroIngestao) as context:
+                carregar_documentos(caminho)
+
+        self.assertEqual(
+            str(context.exception),
+            "Arquivo da base não contém texto UTF-8 válido.",
+        )
+        self.assertIsNone(context.exception.__cause__)
+
     def test_trata_arquivo_inexistente(self) -> None:
         with TemporaryDirectory() as diretorio:
             caminho = Path(diretorio) / "nao-existe.json"
