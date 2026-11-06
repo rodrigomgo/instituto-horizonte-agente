@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-004 concluídas; RAG local com FastEmbed, Chroma e `buscar_normas` validado.
+**Estado:** TSK-001 a TSK-005 concluídas; persistência SQLite revisada e validada.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -16,8 +16,9 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Loader validado dos 12 documentos acadêmicos oficiais.
 - Indexação Chroma persistente e idempotente com FastEmbed local.
 - Tool tipada `buscar_normas`, com distâncias brutas e logs sanitizados de recuperação.
+- Infraestrutura SQLite com schema reproduzível e seed idempotente de `SOL-1001`.
 
-Ainda não existem SQLite, LangGraph, as Tools de protocolo/registro nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
+Ainda não existem LangGraph, as Tools de protocolo/registro nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
 
 ## Conteúdo de referência
 
@@ -166,6 +167,33 @@ Remove-Item Env:RUN_FASTEMBED_TESTS
 
 As distâncias retornadas são distâncias de cosseno brutas, não percentuais de confiança. A TSK-004 não define limiar de abstenção.
 
+## Inicializar o banco de protocolos — TSK-005
+
+O banco usa somente `sqlite3` da biblioteca padrão. O caminho padrão é `.local/protocolos.sqlite3`, resolvido a partir da raiz e ignorado pelo Git:
+
+```powershell
+python scripts/init_db.py
+python scripts/init_db.py  # reexecução preserva a fixture sem duplicar
+```
+
+O script carrega `.env` explicitamente, com prioridade para variáveis já definidas. Um caminho absoluto pode ser usado para testes isolados:
+
+```powershell
+$env:SQLITE_PATH = "C:\temp\instituto-horizonte-teste.sqlite3"
+python scripts/init_db.py
+Remove-Item Env:SQLITE_PATH
+```
+
+A fixture `SOL-1001` é uma decisão do projeto: `tipo=solicitacao_academica_demonstracao`, `status=em_analise` e `origem=seed`. O professor forneceu apenas o número de exemplo, não o status. O inicializador não atualiza status ou timestamps existentes e interrompe de forma controlada se o ID 1001 estiver ocupado por registro incompatível.
+
+Testes específicos, sem rede ou chave Groq:
+
+```powershell
+python -m pytest -q -p no:cacheprovider tests/test_database.py
+```
+
+Esta Task fornece somente schema, seed e verificação técnica. A Tool `consultar_protocolo` pertence à TSK-006 e a escrita autorizada pertence à TSK-007.
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
@@ -178,7 +206,7 @@ As distâncias retornadas são distâncias de cosseno brutas, não percentuais d
 
 ## Stack planejada para Tasks posteriores
 
-SQLite e LangGraph ainda não foram adicionados. FastEmbed multilíngue e Chroma local persistente foram validados na TSK-004.
+LangGraph ainda não foi adicionado. FastEmbed, Chroma e a infraestrutura SQLite foram incorporados incrementalmente.
 
 ## Restrições de origem
 
@@ -186,7 +214,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-004 foi concluída após revisão humana e correções técnicas. A próxima etapa planejada é a TSK-005, que implementará SQLite e o seed reexecutável do protocolo fictício `SOL-1001`; ela não faz parte desta entrega.
+A próxima etapa planejada é a TSK-006, futura Tool tipada `consultar_protocolo`. Ela não foi iniciada nesta entrega.
 
 ## Referências de rastreabilidade
 
