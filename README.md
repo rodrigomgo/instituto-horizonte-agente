@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
-**Versão:** 0.1 — estrutura inicial da TSK-001.
-**Estado:** TSK-001, TSK-002 e TSK-003 concluídas; loader acadêmico validado.
+**Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
+**Estado:** TSK-001 a TSK-004 concluídas; RAG local com FastEmbed, Chroma e `buscar_normas` validado.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -13,8 +13,11 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Testes locais da configuração válida e inválida.
 - Arquivos de ambiente de exemplo e exclusões para segredos e artefatos.
 - Smoke test reproduzível de Tool Calling local e Structured Output Pydantic via Groq.
+- Loader validado dos 12 documentos acadêmicos oficiais.
+- Indexação Chroma persistente e idempotente com FastEmbed local.
+- Tool tipada `buscar_normas`, com distâncias brutas e logs sanitizados de recuperação.
 
-Não existem ainda RAG, Tools definitivas, LangGraph, SQLite nem execução dos dez cenários. Esses itens pertencem às Tasks posteriores.
+Ainda não existem SQLite, LangGraph, as Tools de protocolo/registro nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
 
 ## Conteúdo de referência
 
@@ -128,6 +131,41 @@ python -m pytest -q -p no:cacheprovider
 
 O script não requer `GROQ_API_KEY` nem acesso à internet. Ele exibe quantidade, IDs, categorias e hashes SHA-256 do campo `conteudo`, sem modificar os arquivos em `data/`.
 
+## Indexar e consultar normas — TSK-004
+
+Na primeira execução, o FastEmbed baixa aproximadamente 220 MB para `.local/fastembed_cache`. O índice Chroma persistente fica em `.local/chroma`; ambos são ignorados pelo Git e não usam Groq:
+
+```powershell
+python scripts/index_documents.py
+python scripts/index_documents.py  # repetição idempotente: permanece com 12 registros
+python scripts/evaluate_retrieval.py
+```
+
+Consulta direta pela Tool LangChain tipada:
+
+```powershell
+python -c "from instituto_horizonte.retrieval import buscar_normas; print(buscar_normas.invoke({'consulta': 'Qual é o prazo da declaração de matrícula?', 'top_k': 3}))"
+```
+
+Para usar outro diretório local sem alterar o padrão:
+
+```powershell
+$env:CHROMA_DIR = ".local/chroma-alternativo"
+python scripts/index_documents.py
+Remove-Item Env:CHROMA_DIR
+```
+
+Testes unitários usam embeddings falsos e não baixam modelos. A integração real é habilitada separadamente:
+
+```powershell
+python -m pytest -q -p no:cacheprovider
+$env:RUN_FASTEMBED_TESTS = "1"
+python -m pytest -q -p no:cacheprovider tests/test_fastembed_real.py
+Remove-Item Env:RUN_FASTEMBED_TESTS
+```
+
+As distâncias retornadas são distâncias de cosseno brutas, não percentuais de confiança. A TSK-004 não define limiar de abstenção.
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
@@ -140,7 +178,7 @@ O script não requer `GROQ_API_KEY` nem acesso à internet. Ele exibe quantidade
 
 ## Stack planejada para Tasks posteriores
 
-LangGraph, FastEmbed multilíngue, Chroma local persistente e SQLite ainda não foram adicionados.
+SQLite e LangGraph ainda não foram adicionados. FastEmbed multilíngue e Chroma local persistente foram validados na TSK-004.
 
 ## Restrições de origem
 
@@ -148,7 +186,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-Iniciar exclusivamente a TSK-004: Chroma/FastEmbed e Tool `buscar_normas`, com calibração baseada em resultados reais. Não avançar para LangGraph, SQLite ou demais Tools fora da ordem do backlog.
+A TSK-004 foi concluída após revisão humana e correções técnicas. A próxima etapa planejada é a TSK-005, que implementará SQLite e o seed reexecutável do protocolo fictício `SOL-1001`; ela não faz parte desta entrega.
 
 ## Referências de rastreabilidade
 
