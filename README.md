@@ -117,6 +117,17 @@ python -m pytest -q -p no:cacheprovider
 
 Os testes cobrem configuração, fluxo mock de Tool Calling, ausência de chave, HTTP 401, timeout, HTTP 429, saída estruturada inválida e ocultação da chave. Eles não fazem chamadas externas.
 
+## Validar a base acadêmica — TSK-003
+
+O JSON oficial é carregado em UTF-8, validado por Pydantic e preparado de forma determinística, com um documento por registro e sem gerar embeddings:
+
+```powershell
+python scripts/validate_documents.py
+python -m pytest -q -p no:cacheprovider
+```
+
+O script não requer `GROQ_API_KEY` nem acesso à internet. Ele exibe quantidade, IDs, categorias e hashes SHA-256 do campo `conteudo`, sem modificar os arquivos em `data/`.
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
