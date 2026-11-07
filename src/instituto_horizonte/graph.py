@@ -223,6 +223,19 @@ class AgenteAcademico:
         ultima = estado.get("messages", [])[-1]
         rodadas = estado.get("rodadas", 0)
         if isinstance(ultima, ToolMessage):
+            if ultima.status == "error":
+                evento = {
+                    "tool": ultima.name or "desconhecida",
+                    "resultado": "erro",
+                }
+                texto = "Falha controlada na execução da Tool."
+                return {
+                    "rota": "saida",
+                    "messages": [AIMessage(content=texto)],
+                    "tool_trace": [*estado.get("tool_trace", []), evento],
+                    "erros": [texto],
+                    "ultima_resposta": {"resposta": texto, "status": "erro"},
+                }
             evento = {"tool": ultima.name or "desconhecida", "resultado": "recebido"}
             evidencias = sorted(_extrair_ids(ultima.content))
             if rodadas >= self.config.max_agent_rounds:

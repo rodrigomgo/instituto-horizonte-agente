@@ -253,11 +253,20 @@ class GraphTests(unittest.TestCase):
             modelo=ModeloFalso(),
             tools_leitura=[tool_com_falha, self.consultar_protocolo],
         )
+        quantidade_antes = self.quantidade()
         resposta_tool = agente_tool.processar_turno("tool", "Qual o prazo da norma?")
+        quantidade_depois = self.quantidade()
         resposta_modelo = self.agente(ModeloFalso(falhar=True)).processar_turno(
             "modelo", "Pergunta geral"
         )
         self.assertIn("controlada", resposta_tool.resposta)
+        self.assertEqual(resposta_tool.status, "erro")
+        self.assertNotIn("sucesso", resposta_tool.resposta.lower())
+        self.assertEqual(resposta_tool.fontes, [])
+        self.assertTrue(resposta_tool.erros)
+        self.assertEqual(resposta_tool.eventos_tools[-1]["resultado"], "erro")
+        self.assertNotIn("detalhe privado", resposta_tool.resposta)
+        self.assertEqual(quantidade_antes, quantidade_depois)
         self.assertIn("Falha controlada", resposta_modelo.resposta)
         self.assertEqual(resposta_modelo.status, "erro")
         self.assertTrue(resposta_modelo.erros)
