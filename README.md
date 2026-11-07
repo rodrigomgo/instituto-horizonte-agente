@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-005 concluídas; persistência SQLite revisada e validada.
+**Estado:** TSK-001 a TSK-006 concluídas; consulta tipada de protocolos revisada e validada.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -17,8 +17,9 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Indexação Chroma persistente e idempotente com FastEmbed local.
 - Tool tipada `buscar_normas`, com distâncias brutas e logs sanitizados de recuperação.
 - Infraestrutura SQLite com schema reproduzível e seed idempotente de `SOL-1001`.
+- Tool LangChain tipada `consultar_protocolo`, com acesso SQLite somente leitura.
 
-Ainda não existem LangGraph, as Tools de protocolo/registro nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
+Ainda não existem LangGraph, Tool de registro nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
 
 ## Conteúdo de referência
 
@@ -192,7 +193,33 @@ Testes específicos, sem rede ou chave Groq:
 python -m pytest -q -p no:cacheprovider tests/test_database.py
 ```
 
-Esta Task fornece somente schema, seed e verificação técnica. A Tool `consultar_protocolo` pertence à TSK-006 e a escrita autorizada pertence à TSK-007.
+Esta Task fornece somente schema, seed e verificação técnica. A Tool `consultar_protocolo` foi implementada posteriormente na TSK-006; a escrita autorizada pertence à TSK-007.
+
+## Consultar protocolo existente — TSK-006
+
+Inicialize o banco e consulte protocolos pelo terminal:
+
+```powershell
+python scripts/init_db.py
+python scripts/consult_protocol.py SOL-1001
+python scripts/consult_protocol.py SOL-9999
+```
+
+O script carrega `.env` explicitamente e respeita `SQLITE_PATH`. A consulta abre exclusivamente um banco existente em modo SQLite somente leitura; não cria schema, não executa seed e não altera solicitações. Números devem seguir `SOL-nnnn` com pelo menos quatro dígitos.
+
+Invocação direta da Tool LangChain, sem LLM:
+
+```powershell
+python -c "from instituto_horizonte.protocols import consultar_protocolo; print(consultar_protocolo.invoke({'numero': 'SOL-1001'}))"
+```
+
+Testes específicos:
+
+```powershell
+python -m pytest -q -p no:cacheprovider tests/test_protocols.py
+```
+
+A Tool apenas verifica protocolos existentes. Ela não cria, altera, resolve ou cancela solicitações.
 
 ## Versões validadas na TSK-002
 
@@ -214,7 +241,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A próxima etapa planejada é a TSK-006, futura Tool tipada `consultar_protocolo`. Ela não foi iniciada nesta entrega.
+A TSK-006 foi concluída após revisão humana. A próxima etapa planejada é a TSK-007, escrita autorizada de solicitações; ela não foi iniciada nesta entrega.
 
 ## Referências de rastreabilidade
 
