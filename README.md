@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-006 concluídas; consulta tipada de protocolos revisada e validada.
+**Estado:** TSK-001 a TSK-006 concluídas; TSK-007 em andamento, aguardando revisão humana.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -18,8 +18,9 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Tool tipada `buscar_normas`, com distâncias brutas e logs sanitizados de recuperação.
 - Infraestrutura SQLite com schema reproduzível e seed idempotente de `SOL-1001`.
 - Tool LangChain tipada `consultar_protocolo`, com acesso SQLite somente leitura.
+- Tool `registrar_solicitacao` protegida por confirmação confiável e idempotência.
 
-Ainda não existem LangGraph, Tool de registro nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
+Ainda não existem LangGraph nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
 
 ## Conteúdo de referência
 
@@ -221,6 +222,22 @@ python -m pytest -q -p no:cacheprovider tests/test_protocols.py
 
 A Tool apenas verifica protocolos existentes. Ela não cria, altera, resolve ou cancela solicitações.
 
+## Registrar solicitação autorizada — TSK-007
+
+A única operação permitida é `segunda_via_certificado`, com turma e justificativa. O backend mantém um rascunho em memória, apresenta o resumo e somente aceita `CONFIRMAR` em uma interação posterior. `CANCELAR` descarta o rascunho sem escrita.
+
+A Tool `registrar_solicitacao` não possui argumento `autorizado` ou `confirmado`. A autorização é transportada por contexto interno do backend e comparada aos dados validados; uma invocação direta da Tool é recusada antes de abrir o SQLite.
+
+A persistência usa `BEGIN IMMEDIATE`, timestamps UTC, chave opaca criada pelo backend e a restrição `UNIQUE` do banco. Repetir a mesma chave com os mesmos dados retorna o protocolo existente; reutilizá-la com dados diferentes produz erro controlado.
+
+Testes específicos, incluindo a demonstração determinística em banco temporário:
+
+```powershell
+python -m pytest -q -p no:cacheprovider tests/test_solicitacoes.py
+```
+
+O gerenciamento conversacional completo e a integração com LangGraph permanecem fora desta Task.
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
@@ -241,7 +258,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-006 foi concluída após revisão humana. A próxima etapa planejada é a TSK-007, escrita autorizada de solicitações; ela não foi iniciada nesta entrega.
+A TSK-007 está implementada e aguarda revisão humana. A TSK-008, orquestração com LangGraph, não foi iniciada.
 
 ## Referências de rastreabilidade
 
