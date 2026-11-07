@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-007 concluídas; registro autorizado revisado e validado.
+**Estado:** TSK-001 a TSK-007 concluídas; TSK-008 implementada e aguardando revisão do estudante.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -19,8 +19,9 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Infraestrutura SQLite com schema reproduzível e seed idempotente de `SOL-1001`.
 - Tool LangChain tipada `consultar_protocolo`, com acesso SQLite somente leitura.
 - Tool `registrar_solicitacao` protegida por confirmação confiável e idempotência.
+- `StateGraph` explícito com sessões em memória, Tools de leitura e rota de escrita protegida.
 
-Ainda não existem LangGraph nem execução ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
+Ainda não existe CLI conversacional nem execução automatizada ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
 
 ## Conteúdo de referência
 
@@ -236,7 +237,23 @@ Testes específicos, incluindo a demonstração determinística em banco tempor�
 python -m pytest -q -p no:cacheprovider tests/test_solicitacoes.py
 ```
 
-O gerenciamento conversacional completo e a integração com LangGraph permanecem fora desta Task.
+O gerenciamento conversacional foi integrado ao LangGraph na TSK-008.
+
+## Orquestração LangGraph — TSK-008
+
+O grafo usa `StateGraph`, `START`, `END`, `ToolNode`, arestas condicionais e `InMemorySaver`. Somente `buscar_normas` e `consultar_protocolo` são vinculadas ao modelo. A Tool de escrita permanece fora do conjunto disponível ao LLM e é chamada pelo backend apenas depois de uma nova mensagem humana exatamente igual a `CONFIRMAR`, associada a um resumo pendente da mesma sessão.
+
+Smoke test real e limitado aos cenários T01 e T04:
+
+```powershell
+python scripts/smoke_test_graph.py
+```
+
+O script carrega `.env` explicitamente, não imprime a chave e retorna falha controlada se a configuração ou o provedor falharem. Testes do grafo, sem rede:
+
+```powershell
+python -m pytest -q -p no:cacheprovider tests/test_graph.py
+```
 
 ## Versões validadas na TSK-002
 
@@ -248,9 +265,9 @@ O gerenciamento conversacional completo e a integração com LangGraph permanece
 - `python-dotenv==1.2.4`;
 - `pytest==8.4.2`.
 
-## Stack planejada para Tasks posteriores
+## Stack incorporada incrementalmente
 
-LangGraph ainda não foi adicionado. FastEmbed, Chroma e a infraestrutura SQLite foram incorporados incrementalmente.
+LangGraph, FastEmbed, Chroma e a infraestrutura SQLite foram adicionados somente nas Tasks correspondentes. A TSK-008 usa `langgraph==1.2.20`.
 
 ## Restrições de origem
 
@@ -258,9 +275,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-007 foi concluída após revisão técnica. A próxima etapa planejada é a TSK-008, orquestração com LangGraph; ela não foi iniciada nesta entrega.
-
-Na TSK-008, `CONFIRMAR` deverá obrigatoriamente vir de uma **nova mensagem do usuário**, posterior à apresentação do resumo e vinculada ao rascunho pendente. Nenhuma decisão, resposta ou Tool Call produzida pelo LLM poderá ser tratada como consentimento para escrita.
+A TSK-008 está implementada e permanece `Em andamento` até a revisão do estudante. Depois da aprovação, a próxima etapa planejada é a TSK-009, validação pós-resposta, segurança e limites.
 
 ## Referências de rastreabilidade
 
