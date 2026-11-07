@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-008 concluídas; orquestração LangGraph revisada e validada.
+**Estado:** TSK-001 a TSK-008 concluídas; TSK-009 implementada e aguardando revisão humana.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -20,6 +20,7 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Tool LangChain tipada `consultar_protocolo`, com acesso SQLite somente leitura.
 - Tool `registrar_solicitacao` protegida por confirmação confiável e idempotência.
 - `StateGraph` explícito com sessões em memória, Tools de leitura e rota de escrita protegida.
+- Saída `RespostaAgente` validada por Pydantic e por evidências estruturadas das Tools.
 
 Ainda não existe CLI conversacional nem execução automatizada ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
 
@@ -255,6 +256,28 @@ O script carrega `.env` explicitamente, não imprime a chave e retorna falha con
 python -m pytest -q -p no:cacheprovider tests/test_graph.py
 ```
 
+## Validação de respostas e evidências — TSK-009
+
+Toda parte conversacional da saída valida no contrato Pydantic `RespostaAgente`: texto não vazio, status permitido, fontes acadêmicas e protocolo opcional. `ResultadoTurno` herda esse contrato e acrescenta somente sessão, rodadas, eventos de Tools e erros.
+
+Fontes são aceitas exclusivamente a partir de `id` e `fonte` coincidentes nos resultados estruturados de `buscar_normas`. IDs mencionados pelo usuário, pelo modelo ou apenas no corpo de um documento não comprovam uma fonte. Quando o modelo cita um documento, fatos numéricos precisam existir no conteúdo desse mesmo documento.
+
+O gate conservador de abstenção exige sobreposição temática e, para perguntas por valor, prazo, frequência ou percentual, evidência numérica explícita. Anos e outros números especificados na pergunta também precisam constar das normas recuperadas. Não é usado limiar arbitrário de distância vetorial.
+
+Testes locais, sem Groq:
+
+```powershell
+python -m pytest -q -p no:cacheprovider tests/test_safety.py
+```
+
+Verificação real curta de T09, T10 e T01:
+
+```powershell
+python scripts/smoke_test_safety.py
+```
+
+O validador é deliberadamente conservador. Ele comprova origem dos metadados, associação das citações e consistência de fatos numéricos explícitos; não pretende provar toda afirmação possível em linguagem natural.
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
@@ -275,7 +298,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-008 foi concluída após revisão técnica e correção do tratamento estruturado de falhas de Tools. A próxima etapa planejada é a TSK-009, validação pós-resposta, segurança e limites.
+A TSK-009 está implementada e permanece `Em andamento` até revisão humana. A TSK-010, CLI interativa, não foi iniciada.
 
 ## Referências de rastreabilidade
 

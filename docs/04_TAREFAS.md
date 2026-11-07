@@ -13,7 +13,7 @@
 | TSK-006 | `consultar_protocolo` tipada e estados de erro | RF-04/09 | T04 + ID inexistente | 1–2h | Concluída |
 | TSK-007 | `registrar_solicitacao` com validação, autorização e idempotência | RF-05/06/07/09/13–15 | Fluxo confirmação e negação | 2–4h | Concluída |
 | TSK-008 | `StateGraph`, rotas, sessão e ciclo de Tools | RF-01/04/05/09/10 | T01/T04/T05 | 3–5h | Concluída |
-| TSK-009 | Structured Output, validador pós-resposta, segurança e limites | RF-03/07/08/10 | T09/T10 + schema inválido | 2–3h | Pendente |
+| TSK-009 | Structured Output, validador pós-resposta, segurança e limites | RF-03/07/08/10 | T09/T10 + schema inválido | 2–3h | Em andamento |
 | TSK-010 | CLI interativa com retorno explícito de fontes/status/protocolo | RF-01/04/06/08 | Demonstração manual | 1h | Pendente |
 | TSK-011 | Logs auditáveis, falhas 429/timeout e tratamento de erros | RF-11 | Teste de injeção de falhas | 1–2h | Pendente |
 | TSK-012 | Suite unitária e de integração, harness dos 10 cenários originais | RF-12 | `pytest` + script cenários | 3–5h | Pendente |

@@ -50,6 +50,10 @@ class ModeloFalso:
                 ],
             )
         if isinstance(ultima, ToolMessage):
+            if ultima.name == "buscar_normas":
+                return AIMessage(
+                    content="O prazo é de até 3 dias úteis, conforme ACAD-001."
+                )
             return AIMessage(content=f"Resposta baseada na Tool: {ultima.content}")
         humanos = [item for item in messages if isinstance(item, HumanMessage)]
         texto = str(humanos[-1].content).lower()
@@ -97,8 +101,12 @@ class GraphTests(unittest.TestCase):
                 "resultados": [
                     {
                         "id": "ACAD-001",
+                        "titulo": "Declaração de matrícula",
+                        "categoria": "documentos",
                         "fonte": "ACAD-001",
-                        "conteudo": "Prazo simulado persistido na Tool falsa.",
+                        "conteudo": "O prazo simulado é de até 3 dias úteis.",
+                        "relevancia": None,
+                        "distancia": 0.1,
                     }
                 ],
                 "total": 1,
@@ -235,7 +243,7 @@ class GraphTests(unittest.TestCase):
             {"SQLITE_PATH": str(self.caminho), "MAX_AGENT_ROUNDS": "2"}
         )
         resposta = self.agente(ModeloFalso(loop=True), config).processar_turno(
-            "loop", "Consulte a norma em loop."
+            "loop", "Qual o prazo da declaração de matrícula?"
         )
         self.assertEqual(resposta.status, "erro")
         self.assertIn("Limite", resposta.resposta)

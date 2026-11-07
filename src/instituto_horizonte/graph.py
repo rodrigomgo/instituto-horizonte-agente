@@ -19,11 +19,16 @@ from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph, add_messages
 from langgraph.prebuilt import ToolNode
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field, ValidationError
 
 from instituto_horizonte.config import Configuracao
-from instituto_horizonte.protocols import consultar_protocolo
-from instituto_horizonte.retrieval import buscar_normas
+from instituto_horizonte.protocols import RespostaConsultaProtocolo, consultar_protocolo
+from instituto_horizonte.retrieval import RespostaBuscaNormas, buscar_normas
+from instituto_horizonte.safety import (
+    RespostaAgente,
+    evidencia_sustenta_pergunta,
+    validar_resposta_backend,
+)
 from instituto_horizonte.solicitacoes import DadosSolicitacao, GestorRascunhos
 
 
@@ -47,6 +52,8 @@ class AgentState(TypedDict, total=False):
     rascunho_solicitacao: dict[str, str] | None
     confirmacao_pendente: bool
     evidencias: list[str]
+    resultados_normas: list[dict[str, Any]]
+    resultado_protocolo: dict[str, Any] | None
     tool_trace: list[dict[str, Any]]
     rodadas: int
     ultima_resposta: dict[str, Any] | None
@@ -54,14 +61,10 @@ class AgentState(TypedDict, total=False):
     rota: str
 
 
-class ResultadoTurno(BaseModel):
+class ResultadoTurno(RespostaAgente):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
     sessao: str
-    resposta: str
-    status: str
-    fontes: list[str] = Field(default_factory=list)
-    protocolo: str | None = None
     rodadas: int = Field(ge=0)
     eventos_tools: list[dict[str, Any]] = Field(default_factory=list)
     erros: list[str] = Field(default_factory=list)
@@ -83,21 +86,10 @@ def _texto_mensagem(mensagem: AnyMessage) -> str:
     return mensagem.content if isinstance(mensagem.content, str) else str(mensagem.content)
 
 
-def _extrair_ids(valor: Any) -> set[str]:
-    encontrados: set[str] = set()
-    if isinstance(valor, str):
-        encontrados.update(re.findall(r"ACAD-\d{3}", valor))
-        try:
-            encontrados.update(_extrair_ids(json.loads(valor)))
-        except (json.JSONDecodeError, TypeError):
-            pass
-    elif isinstance(valor, dict):
-        for item in valor.values():
-            encontrados.update(_extrair_ids(item))
-    elif isinstance(valor, list):
-        for item in valor:
-            encontrados.update(_extrair_ids(item))
-    return encontrados
+def _conteudo_estruturado(mensagem: ToolMessage) -> Any:
+    if not isinstance(mensagem.content, str):
+        return mensagem.content
+    return json.loads(mensagem.content)
 
 
 def _extrair_dados_solicitacao(texto: str) -> dict[str, str]:
@@ -220,38 +212,100 @@ class AgenteAcademico:
         return "validar"
 
     def _no_validar(self, estado: AgentState) -> dict[str, Any]:
-        ultima = estado.get("messages", [])[-1]
+        mensagens = estado.get("messages", [])
+        ultima = mensagens[-1]
         rodadas = estado.get("rodadas", 0)
         if isinstance(ultima, ToolMessage):
-            if ultima.status == "error":
-                evento = {
-                    "tool": ultima.name or "desconhecida",
-                    "resultado": "erro",
-                }
+            mensagens_tools: list[ToolMessage] = []
+            for mensagem in reversed(mensagens):
+                if not isinstance(mensagem, ToolMessage):
+                    break
+                mensagens_tools.append(mensagem)
+            mensagens_tools.reverse()
+            eventos = list(estado.get("tool_trace", []))
+            evidencias = set(estado.get("evidencias", []))
+            resultados_normas = list(estado.get("resultados_normas", []))
+            resultado_protocolo = estado.get("resultado_protocolo")
+            if any(mensagem.status == "error" for mensagem in mensagens_tools):
+                eventos.extend(
+                    {
+                        "tool": mensagem.name or "desconhecida",
+                        "resultado": "erro" if mensagem.status == "error" else "recebido",
+                    }
+                    for mensagem in mensagens_tools
+                )
                 texto = "Falha controlada na execução da Tool."
                 return {
                     "rota": "saida",
                     "messages": [AIMessage(content=texto)],
-                    "tool_trace": [*estado.get("tool_trace", []), evento],
+                    "tool_trace": eventos,
                     "erros": [texto],
                     "ultima_resposta": {"resposta": texto, "status": "erro"},
                 }
-            evento = {"tool": ultima.name or "desconhecida", "resultado": "recebido"}
-            evidencias = sorted(_extrair_ids(ultima.content))
+            try:
+                for mensagem in mensagens_tools:
+                    nome = mensagem.name or "desconhecida"
+                    conteudo = _conteudo_estruturado(mensagem)
+                    if nome == "buscar_normas":
+                        busca = RespostaBuscaNormas.model_validate(conteudo)
+                        documentos = [item.model_dump(mode="json") for item in busca.resultados]
+                        resultados_normas.extend(documentos)
+                        evidencias.update(
+                            item.id for item in busca.resultados if item.id == item.fonte
+                        )
+                    elif nome == "consultar_protocolo":
+                        consulta = RespostaConsultaProtocolo.model_validate(conteudo)
+                        resultado_protocolo = consulta.model_dump(mode="json")
+                    eventos.append({"tool": nome, "resultado": "recebido"})
+            except (json.JSONDecodeError, TypeError, ValidationError):
+                texto = "A Tool retornou uma saída estruturada inválida."
+                return {
+                    "rota": "saida",
+                    "messages": [AIMessage(content=texto)],
+                    "tool_trace": eventos,
+                    "erros": [texto],
+                    "ultima_resposta": {"resposta": texto, "status": "erro"},
+                }
+            busca_executada = any(
+                mensagem.name == "buscar_normas" for mensagem in mensagens_tools
+            )
+            if busca_executada and not evidencia_sustenta_pergunta(
+                estado["mensagem_usuario_confiavel"], resultados_normas
+            ):
+                resposta = RespostaAgente(
+                    resposta=(
+                        "A informação solicitada não consta das normas disponíveis."
+                    ),
+                    status="sem_evidencia",
+                    fontes=[],
+                    protocolo=None,
+                )
+                return {
+                    "rota": "saida",
+                    "tool_trace": eventos,
+                    "evidencias": [],
+                    "resultados_normas": resultados_normas,
+                    "resultado_protocolo": resultado_protocolo,
+                    "ultima_resposta": resposta.model_dump(mode="json"),
+                }
             if rodadas >= self.config.max_agent_rounds:
                 texto = "Limite de rodadas atingido; a execução foi encerrada com segurança."
                 return {
                     "rota": "saida",
                     "messages": [AIMessage(content=texto)],
-                    "tool_trace": [*estado.get("tool_trace", []), evento],
-                    "evidencias": sorted(set(estado.get("evidencias", []) + evidencias)),
+                    "tool_trace": eventos,
+                    "evidencias": sorted(evidencias),
+                    "resultados_normas": resultados_normas,
+                    "resultado_protocolo": resultado_protocolo,
                     "erros": [texto],
                     "ultima_resposta": {"resposta": texto, "status": "erro"},
                 }
             return {
                 "rota": "agente",
-                "tool_trace": [*estado.get("tool_trace", []), evento],
-                "evidencias": sorted(set(estado.get("evidencias", []) + evidencias)),
+                "tool_trace": eventos,
+                "evidencias": sorted(evidencias),
+                "resultados_normas": resultados_normas,
+                "resultado_protocolo": resultado_protocolo,
             }
         if isinstance(ultima, AIMessage) and ultima.tool_calls:
             texto = "Limite de rodadas atingido antes de nova execução de Tool."
@@ -261,13 +315,16 @@ class AgenteAcademico:
                 "erros": [texto],
                 "ultima_resposta": {"resposta": texto, "status": "erro"},
             }
-        texto = _texto_mensagem(ultima).strip() or "O agente não produziu resposta."
+        resposta = validar_resposta_backend(
+            resposta_candidata=_texto_mensagem(ultima),
+            pergunta=estado["mensagem_usuario_confiavel"],
+            resultados_normas=estado.get("resultados_normas", []),
+            resultado_protocolo=estado.get("resultado_protocolo"),
+            erros=estado.get("erros", []),
+        )
         return {
             "rota": "saida",
-            "ultima_resposta": {
-                "resposta": texto,
-                "status": "erro" if estado.get("erros") else "respondida",
-            },
+            "ultima_resposta": resposta.model_dump(mode="json"),
         }
 
     def _no_solicitacao(self, estado: AgentState) -> dict[str, Any]:
@@ -351,6 +408,8 @@ class AgenteAcademico:
                 "session_id": sessao,
                 "mensagem_usuario_confiavel": mensagem_usuario,
                 "evidencias": [],
+                "resultados_normas": [],
+                "resultado_protocolo": None,
                 "tool_trace": [],
                 "rodadas": 0,
                 "erros": [],
@@ -358,13 +417,10 @@ class AgenteAcademico:
             },
             config={"configurable": {"thread_id": sessao}},
         )
-        ultima = estado.get("ultima_resposta") or {}
+        ultima = RespostaAgente.model_validate(estado.get("ultima_resposta") or {})
         return ResultadoTurno(
             sessao=sessao,
-            resposta=str(ultima.get("resposta", "")),
-            status=str(ultima.get("status", "erro")),
-            fontes=list(estado.get("evidencias", [])),
-            protocolo=ultima.get("protocolo"),
+            **ultima.model_dump(mode="json"),
             rodadas=int(estado.get("rodadas", 0)),
             eventos_tools=list(estado.get("tool_trace", [])),
             erros=list(estado.get("erros", [])),
