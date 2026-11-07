@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-006 concluídas; TSK-007 em andamento, aguardando revisão humana.
+**Estado:** TSK-001 a TSK-007 concluídas; registro autorizado revisado e validado.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -258,7 +258,9 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-007 está implementada e aguarda revisão humana. A TSK-008, orquestração com LangGraph, não foi iniciada.
+A TSK-007 foi concluída após revisão técnica. A próxima etapa planejada é a TSK-008, orquestração com LangGraph; ela não foi iniciada nesta entrega.
+
+Na TSK-008, `CONFIRMAR` deverá obrigatoriamente vir de uma **nova mensagem do usuário**, posterior à apresentação do resumo e vinculada ao rascunho pendente. Nenhuma decisão, resposta ou Tool Call produzida pelo LLM poderá ser tratada como consentimento para escrita.
 
 ## Referências de rastreabilidade
 
