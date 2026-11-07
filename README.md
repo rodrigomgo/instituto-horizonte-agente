@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-008 concluídas; TSK-009 implementada e aguardando revisão humana.
+**Estado:** TSK-001 a TSK-009 concluídas; validação de segurança revisada e aprovada.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -276,7 +276,7 @@ Verificação real curta de T09, T10 e T01:
 python scripts/smoke_test_safety.py
 ```
 
-O validador é deliberadamente conservador. Ele comprova origem dos metadados, associação das citações e consistência de fatos numéricos explícitos; não pretende provar toda afirmação possível em linguagem natural.
+O validador é deliberadamente conservador. Ele exige evidência também para perguntas sobre regras, procedimentos e serviços acadêmicos, mesmo sem termos numéricos; saudações e conversa simples continuam permitidas sem RAG. Ele comprova origem dos metadados, associação das citações e consistência de fatos numéricos explícitos, mas não pretende provar toda afirmação possível em linguagem natural.
 
 ## Versões validadas na TSK-002
 
@@ -298,7 +298,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-009 está implementada e permanece `Em andamento` até revisão humana. A TSK-010, CLI interativa, não foi iniciada.
+A TSK-009 foi concluída após revisão técnica e correção da classificação de perguntas normativas sem evidência. A próxima etapa planejada é a TSK-010, CLI interativa; ela não foi iniciada nesta entrega.
 
 ## Referências de rastreabilidade
 

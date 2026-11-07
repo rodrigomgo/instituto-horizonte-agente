@@ -34,6 +34,28 @@ TERMOS_FATO_ESPECIFICO = {
     "quanto",
     "valor",
 }
+TERMOS_DOMINIO_ACADEMICO = {
+    "atividade",
+    "biblioteca",
+    "calendario",
+    "cancelamento",
+    "certificado",
+    "cobranca",
+    "credencial",
+    "declaracao",
+    "disciplina",
+    "edital",
+    "frequencia",
+    "matricula",
+    "nota",
+    "pagamento",
+    "portal",
+    "protocolo",
+    "revisao",
+    "senha",
+    "solicitacao",
+    "trancamento",
+}
 PALAVRAS_COMUNS = {
     "a",
     "ao",
@@ -119,6 +141,13 @@ def _tokens(texto: str) -> set[str]:
 
 def _numeros(texto: str) -> set[str]:
     return {numero.replace(",", ".") for numero in PADRAO_NUMERO.findall(texto)}
+
+
+def pergunta_exige_evidencia(pergunta: str) -> bool:
+    """Classifica conservadoramente temas de regras, serviços e procedimentos."""
+
+    tokens = _tokens(pergunta)
+    return bool(tokens.intersection(TERMOS_FATO_ESPECIFICO | TERMOS_DOMINIO_ACADEMICO))
 
 
 def _resposta_segura_sem_evidencia() -> RespostaAgente:
@@ -247,9 +276,7 @@ def validar_resposta_backend(
 
     evidencias = _evidencias_confiaveis(resultados_normas)
     fontes = sorted(evidencias)
-    consulta_normativa = bool(resultados_normas) or bool(
-        _tokens(pergunta).intersection(TERMOS_FATO_ESPECIFICO)
-    )
+    consulta_normativa = bool(resultados_normas) or pergunta_exige_evidencia(pergunta)
     if consulta_normativa:
         citacoes = {f"ACAD-{sufixo}" for sufixo in PADRAO_CITACAO.findall(texto)}
         if not citacoes.issubset(fontes):

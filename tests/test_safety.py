@@ -19,6 +19,7 @@ from instituto_horizonte.graph import AgenteAcademico
 from instituto_horizonte.safety import (
     RespostaAgente,
     evidencia_sustenta_pergunta,
+    pergunta_exige_evidencia,
     validar_resposta_backend,
 )
 
@@ -264,6 +265,41 @@ class ModeloBuscaSemSuporte:
                 }
             ],
         )
+
+
+class ModeloRespostaDireta:
+    def bind_tools(self, tools: list[BaseTool]):
+        return self
+
+    def invoke(self, messages: list[Any]) -> AIMessage:
+        return AIMessage(content="Resposta factual produzida sem consultar normas.")
+
+
+@pytest.mark.parametrize(
+    "pergunta",
+    [
+        "Como funciona o trancamento da matrícula?",
+        "Como acesso a biblioteca digital?",
+        "Posso compartilhar minha senha do portal com outra pessoa?",
+    ],
+)
+def test_pergunta_normativa_sem_tool_exige_evidencia(pergunta: str) -> None:
+    assert pergunta_exige_evidencia(pergunta)
+    agente = AgenteAcademico(Configuracao.from_env(), modelo=ModeloRespostaDireta())
+    resposta = agente.processar_turno(f"direta-{abs(hash(pergunta))}", pergunta)
+    assert resposta.status == "sem_evidencia"
+    assert resposta.fontes == []
+    assert "Resposta factual" not in resposta.resposta
+
+
+def test_saudacao_simples_continua_sem_rag() -> None:
+    pergunta = "Olá, tudo bem?"
+    assert not pergunta_exige_evidencia(pergunta)
+    agente = AgenteAcademico(Configuracao.from_env(), modelo=ModeloRespostaDireta())
+    resposta = agente.processar_turno("saudacao", pergunta)
+    assert resposta.status == "respondida"
+    assert resposta.resposta == "Resposta factual produzida sem consultar normas."
+    assert resposta.fontes == []
 
 
 def test_grafo_abstem_antes_de_nova_geracao_quando_busca_nao_sustenta() -> None:
