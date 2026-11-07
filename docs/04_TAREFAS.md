@@ -10,7 +10,7 @@
 | TSK-003 | Loader/validação de 12 registros JSON e indexação idempotente | RF-01/02 | 12 IDs únicos e metadata | 1–2h | Concluída |
 | TSK-004 | Chroma/FastEmbed + `buscar_normas`, logs de retrieval | RF-01/02/03/09 | T01–T03/T06–T09 | 2–3h | Concluída |
 | TSK-005 | SQLite e seed reexecutável para SOL-1001 | RF-04/06 | Consulta SQL e seed duplicado | 1–2h | Concluída |
-| TSK-006 | `consultar_protocolo` tipada e estados de erro | RF-04/09 | T04 + ID inexistente | 1–2h | Em andamento |
+| TSK-006 | `consultar_protocolo` tipada e estados de erro | RF-04/09 | T04 + ID inexistente | 1–2h | Concluída |
 | TSK-007 | `registrar_solicitacao` com validação, autorização e idempotência | RF-05/06/07/09/13–15 | Fluxo confirmação e negação | 2–4h | Pendente |
 | TSK-008 | `StateGraph`, rotas, sessão e ciclo de Tools | RF-01/04/05/09/10 | T01/T04/T05 | 3–5h | Pendente |
 | TSK-009 | Structured Output, validador pós-resposta, segurança e limites | RF-03/07/08/10 | T09/T10 + schema inválido | 2–3h | Pendente |

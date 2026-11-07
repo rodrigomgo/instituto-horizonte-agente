@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-005 concluídas; TSK-006 em andamento, aguardando revisão humana.
+**Estado:** TSK-001 a TSK-006 concluídas; consulta tipada de protocolos revisada e validada.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -193,7 +193,7 @@ Testes específicos, sem rede ou chave Groq:
 python -m pytest -q -p no:cacheprovider tests/test_database.py
 ```
 
-Esta Task fornece somente schema, seed e verificação técnica. A Tool `consultar_protocolo` pertence à TSK-006 e a escrita autorizada pertence à TSK-007.
+Esta Task fornece somente schema, seed e verificação técnica. A Tool `consultar_protocolo` foi implementada posteriormente na TSK-006; a escrita autorizada pertence à TSK-007.
 
 ## Consultar protocolo existente — TSK-006
 
@@ -241,7 +241,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-006 está implementada e aguarda revisão humana. A TSK-007, escrita autorizada de solicitações, não foi iniciada.
+A TSK-006 foi concluída após revisão humana. A próxima etapa planejada é a TSK-007, escrita autorizada de solicitações; ela não foi iniciada nesta entrega.
 
 ## Referências de rastreabilidade
 
