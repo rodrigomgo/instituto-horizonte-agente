@@ -15,6 +15,7 @@ from langchain_core.tools import BaseTool, tool
 from instituto_horizonte.config import Configuracao
 from instituto_horizonte.database import inicializar_banco
 from instituto_horizonte.graph import AgenteAcademico
+from instituto_horizonte.logging_utils import AuditoriaNula
 from instituto_horizonte.protocols import consultar_protocolo_servico
 
 
@@ -128,6 +129,7 @@ class GraphTests(unittest.TestCase):
             config or self.config,
             modelo=modelo or ModeloFalso(),
             tools_leitura=[self.buscar_normas, self.consultar_protocolo],
+            auditoria=AuditoriaNula(),
         )
 
     def quantidade(self) -> int:
@@ -260,6 +262,7 @@ class GraphTests(unittest.TestCase):
             self.config,
             modelo=ModeloFalso(),
             tools_leitura=[tool_com_falha, self.consultar_protocolo],
+            auditoria=AuditoriaNula(),
         )
         quantidade_antes = self.quantidade()
         resposta_tool = agente_tool.processar_turno("tool", "Qual o prazo da norma?")

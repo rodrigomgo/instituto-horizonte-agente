@@ -4,9 +4,24 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Sequence
+import time
+import uuid
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from time import perf_counter
 from typing import Annotated, Any, Literal, Protocol, TypedDict
 
+import httpx
+from groq import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError,
+    InternalServerError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 from langchain_core.messages import (
     AIMessage,
     AnyMessage,
@@ -22,6 +37,7 @@ from langgraph.prebuilt import ToolNode
 from pydantic import ConfigDict, Field, ValidationError
 
 from instituto_horizonte.config import Configuracao
+from instituto_horizonte.logging_utils import Auditoria, AuditoriaJSONL
 from instituto_horizonte.protocols import RespostaConsultaProtocolo, consultar_protocolo
 from instituto_horizonte.retrieval import RespostaBuscaNormas, buscar_normas
 from instituto_horizonte.safety import (
@@ -59,6 +75,9 @@ class AgentState(TypedDict, total=False):
     ultima_resposta: dict[str, Any] | None
     erros: list[str]
     rota: str
+    run_id: str
+    turn_id: str
+    erro_tipo: str | None
 
 
 class ResultadoTurno(RespostaAgente):
@@ -68,6 +87,60 @@ class ResultadoTurno(RespostaAgente):
     rodadas: int = Field(ge=0)
     eventos_tools: list[dict[str, Any]] = Field(default_factory=list)
     erros: list[str] = Field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class FalhaModelo:
+    categoria: str
+    transitoria: bool
+    retry_after: float | None = None
+
+
+def _retry_after(error: Exception) -> float | None:
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None)
+    if headers is None:
+        return None
+    try:
+        valor = float(headers.get("retry-after", ""))
+    except (TypeError, ValueError):
+        return None
+    return valor if 0 <= valor <= 2.0 else None
+
+
+def classificar_falha_modelo(error: Exception) -> FalhaModelo:
+    """Classifica por tipos/códigos estruturados, nunca pelo texto da exceção."""
+
+    if isinstance(error, AuthenticationError):
+        return FalhaModelo("autenticacao", False)
+    if isinstance(error, PermissionDeniedError):
+        return FalhaModelo("autorizacao", False)
+    if isinstance(error, RateLimitError):
+        return FalhaModelo("limite_requisicoes", True, _retry_after(error))
+    if isinstance(error, (APITimeoutError, TimeoutError, httpx.TimeoutException)):
+        return FalhaModelo("timeout", True)
+    if isinstance(error, (APIConnectionError, httpx.TransportError)):
+        return FalhaModelo("conexao", True)
+    if isinstance(error, InternalServerError):
+        return FalhaModelo("servico_temporario", True, _retry_after(error))
+    if isinstance(error, BadRequestError):
+        return FalhaModelo("requisicao_invalida", False)
+    if isinstance(error, APIStatusError):
+        status = error.status_code
+        if status in {401, 403, 429, 400}:
+            categorias = {
+                401: "autenticacao",
+                403: "autorizacao",
+                429: "limite_requisicoes",
+                400: "requisicao_invalida",
+            }
+            return FalhaModelo(
+                categorias[status], status == 429, _retry_after(error)
+            )
+        if 500 <= status <= 599:
+            return FalhaModelo("servico_temporario", True, _retry_after(error))
+        return FalhaModelo("http_nao_transitorio", False)
+    return FalhaModelo("inesperado", False)
 
 
 def criar_chat_groq(config: Configuracao) -> ChatGroq:
@@ -116,6 +189,8 @@ class AgenteAcademico:
         tools_leitura: Sequence[BaseTool] | None = None,
         gestor: GestorRascunhos | None = None,
         checkpointer: InMemorySaver | None = None,
+        auditoria: Auditoria | None = None,
+        espera: Callable[[float], None] = time.sleep,
     ) -> None:
         self.config = config
         self.tools_leitura = list(tools_leitura or [buscar_normas, consultar_protocolo])
@@ -123,7 +198,16 @@ class AgenteAcademico:
         self.modelo_com_tools = self.modelo.bind_tools(self.tools_leitura)
         self.gestor = gestor or GestorRascunhos()
         self.checkpointer = checkpointer or InMemorySaver()
+        self.auditoria = auditoria or AuditoriaJSONL(config.log_dir)
+        self.espera = espera
+        self.run_id = uuid.uuid4().hex
         self.grafo = self._construir_grafo()
+
+    def _registrar_evento(self, **campos: object) -> None:
+        try:
+            self.auditoria.registrar(self.auditoria.criar_evento(**campos))
+        except Exception:
+            return
 
     def _construir_grafo(self):
         builder = StateGraph(AgentState)
@@ -190,20 +274,40 @@ class AgenteAcademico:
 
     def _no_agente(self, estado: AgentState) -> dict[str, Any]:
         rodadas = estado.get("rodadas", 0) + 1
-        try:
-            resposta = self.modelo_com_tools.invoke(
-                [SystemMessage(content=PROMPT_SISTEMA), *estado.get("messages", [])]
-            )
-            if not isinstance(resposta, AIMessage):
-                raise TypeError("modelo não retornou AIMessage")
-            return {"messages": [resposta], "rodadas": rodadas}
-        except Exception as error:
-            texto = f"Falha controlada do modelo ({type(error).__name__})."
-            return {
-                "messages": [AIMessage(content=texto)],
-                "rodadas": rodadas,
-                "erros": [texto],
-            }
+        for tentativa in range(1, 4):
+            try:
+                resposta = self.modelo_com_tools.invoke(
+                    [SystemMessage(content=PROMPT_SISTEMA), *estado.get("messages", [])]
+                )
+                if not isinstance(resposta, AIMessage):
+                    raise TypeError("modelo não retornou AIMessage")
+                return {"messages": [resposta], "rodadas": rodadas}
+            except Exception as error:
+                falha = classificar_falha_modelo(error)
+                esgotada = tentativa >= 3 or not falha.transitoria
+                self._registrar_evento(
+                    run_id=estado["run_id"],
+                    turn_id=estado["turn_id"],
+                    session_id=estado["session_id"],
+                    node="agente",
+                    evento="modelo_retry",
+                    resultado="esgotada" if esgotada else "nova_tentativa",
+                    erro_tipo=falha.categoria,
+                    tentativa=tentativa,
+                )
+                if esgotada:
+                    texto = f"Falha controlada do modelo ({falha.categoria})."
+                    return {
+                        "messages": [AIMessage(content=texto)],
+                        "rodadas": rodadas,
+                        "erros": [texto],
+                        "erro_tipo": falha.categoria,
+                    }
+                atraso = falha.retry_after
+                if atraso is None:
+                    atraso = 0.1 * tentativa
+                self.espera(atraso)
+        raise AssertionError("loop de retry terminou sem resultado")
 
     def _rota_apos_agente(self, estado: AgentState) -> str:
         ultima = estado.get("messages", [])[-1]
@@ -240,6 +344,7 @@ class AgenteAcademico:
                     "messages": [AIMessage(content=texto)],
                     "tool_trace": eventos,
                     "erros": [texto],
+                    "erro_tipo": "tool_error",
                     "ultima_resposta": {"resposta": texto, "status": "erro"},
                 }
             try:
@@ -250,13 +355,22 @@ class AgenteAcademico:
                         busca = RespostaBuscaNormas.model_validate(conteudo)
                         documentos = [item.model_dump(mode="json") for item in busca.resultados]
                         resultados_normas.extend(documentos)
-                        evidencias.update(
+                        fontes_recuperadas = sorted(
                             item.id for item in busca.resultados if item.id == item.fonte
                         )
+                        evidencias.update(fontes_recuperadas)
+                        evento = {
+                            "tool": nome,
+                            "resultado": "recebido",
+                            "fontes_recuperadas": fontes_recuperadas,
+                        }
                     elif nome == "consultar_protocolo":
                         consulta = RespostaConsultaProtocolo.model_validate(conteudo)
                         resultado_protocolo = consulta.model_dump(mode="json")
-                    eventos.append({"tool": nome, "resultado": "recebido"})
+                        evento = {"tool": nome, "resultado": "recebido"}
+                    else:
+                        evento = {"tool": nome, "resultado": "recebido"}
+                    eventos.append(evento)
             except (json.JSONDecodeError, TypeError, ValidationError):
                 texto = "A Tool retornou uma saída estruturada inválida."
                 return {
@@ -264,6 +378,7 @@ class AgenteAcademico:
                     "messages": [AIMessage(content=texto)],
                     "tool_trace": eventos,
                     "erros": [texto],
+                    "erro_tipo": "tool_schema_invalido",
                     "ultima_resposta": {"resposta": texto, "status": "erro"},
                 }
             busca_executada = any(
@@ -298,6 +413,7 @@ class AgenteAcademico:
                     "resultados_normas": resultados_normas,
                     "resultado_protocolo": resultado_protocolo,
                     "erros": [texto],
+                    "erro_tipo": "limite_rodadas",
                     "ultima_resposta": {"resposta": texto, "status": "erro"},
                 }
             return {
@@ -313,6 +429,7 @@ class AgenteAcademico:
                 "rota": "saida",
                 "messages": [AIMessage(content=texto)],
                 "erros": [texto],
+                "erro_tipo": "limite_rodadas",
                 "ultima_resposta": {"resposta": texto, "status": "erro"},
             }
         resposta = validar_resposta_backend(
@@ -359,6 +476,7 @@ class AgenteAcademico:
             return {
                 "messages": [AIMessage(content=texto)],
                 "erros": [texto],
+                "erro_tipo": "dados_solicitacao_invalidos",
                 "ultima_resposta": {"resposta": texto, "status": "erro"},
             }
 
@@ -376,7 +494,7 @@ class AgenteAcademico:
         else:
             status = "erro"
             texto = resultado.erro or "Não foi possível registrar a solicitação."
-        return {
+        retorno: dict[str, Any] = {
             "messages": [AIMessage(content=texto)],
             "rascunho_solicitacao": None,
             "confirmacao_pendente": False,
@@ -386,6 +504,17 @@ class AgenteAcademico:
                 "protocolo": resultado.protocolo,
             },
         }
+        if comando == "CONFIRMAR" and estado.get("confirmacao_pendente", False):
+            retorno["tool_trace"] = [
+                *estado.get("tool_trace", []),
+                {
+                    "tool": "registrar_solicitacao",
+                    "resultado": "sucesso" if resultado.sucesso else "erro",
+                },
+            ]
+            if not resultado.sucesso:
+                retorno["erro_tipo"] = "falha_registro"
+        return retorno
 
     @staticmethod
     def _no_saida(estado: AgentState) -> dict[str, Any]:
@@ -402,26 +531,109 @@ class AgenteAcademico:
     def processar_turno(self, sessao: str, mensagem_usuario: str) -> ResultadoTurno:
         if not sessao.strip() or not mensagem_usuario.strip():
             raise ValueError("sessão e mensagem do usuário são obrigatórias")
-        estado = self.grafo.invoke(
-            {
-                "messages": [HumanMessage(content=mensagem_usuario)],
-                "session_id": sessao,
-                "mensagem_usuario_confiavel": mensagem_usuario,
-                "evidencias": [],
-                "resultados_normas": [],
-                "resultado_protocolo": None,
-                "tool_trace": [],
-                "rodadas": 0,
-                "erros": [],
-                "ultima_resposta": None,
-            },
-            config={"configurable": {"thread_id": sessao}},
+        turn_id = uuid.uuid4().hex
+        inicio = perf_counter()
+        self._registrar_evento(
+            run_id=self.run_id,
+            turn_id=turn_id,
+            session_id=sessao,
+            node="entrada_confiavel",
+            evento="turno_iniciado",
         )
-        ultima = RespostaAgente.model_validate(estado.get("ultima_resposta") or {})
-        return ResultadoTurno(
-            sessao=sessao,
-            **ultima.model_dump(mode="json"),
-            rodadas=int(estado.get("rodadas", 0)),
-            eventos_tools=list(estado.get("tool_trace", [])),
-            erros=list(estado.get("erros", [])),
+        try:
+            estado = self.grafo.invoke(
+                {
+                    "messages": [HumanMessage(content=mensagem_usuario)],
+                    "session_id": sessao,
+                    "mensagem_usuario_confiavel": mensagem_usuario,
+                    "evidencias": [],
+                    "resultados_normas": [],
+                    "resultado_protocolo": None,
+                    "tool_trace": [],
+                    "rodadas": 0,
+                    "erros": [],
+                    "erro_tipo": None,
+                    "run_id": self.run_id,
+                    "turn_id": turn_id,
+                    "ultima_resposta": None,
+                },
+                config={"configurable": {"thread_id": sessao}},
+            )
+            ultima = RespostaAgente.model_validate(estado.get("ultima_resposta") or {})
+            resultado = ResultadoTurno(
+                sessao=sessao,
+                **ultima.model_dump(mode="json"),
+                rodadas=int(estado.get("rodadas", 0)),
+                eventos_tools=list(estado.get("tool_trace", [])),
+                erros=list(estado.get("erros", [])),
+            )
+            erro_tipo = estado.get("erro_tipo")
+        except Exception as error:
+            erro_tipo = f"orquestracao_{type(error).__name__}"
+            texto = "Falha controlada na orquestração."
+            resultado = ResultadoTurno(
+                sessao=sessao,
+                resposta=texto,
+                status="erro",
+                fontes=[],
+                protocolo=None,
+                rodadas=0,
+                eventos_tools=[],
+                erros=[texto],
+            )
+
+        for evento_tool in resultado.eventos_tools:
+            nome = str(evento_tool.get("tool", "desconhecida"))
+            resultado_tool = str(evento_tool.get("resultado", "desconhecido"))
+            self._registrar_evento(
+                run_id=self.run_id,
+                turn_id=turn_id,
+                session_id=sessao,
+                node=(
+                    "registro_autorizado"
+                    if nome == "registrar_solicitacao"
+                    else "tools_leitura"
+                ),
+                evento="tool_concluida",
+                tool=nome,
+                resultado=resultado_tool,
+                fontes_recuperadas=(
+                    list(evento_tool.get("fontes_recuperadas", []))
+                    if nome == "buscar_normas"
+                    else []
+                ),
+                fontes=resultado.fontes if nome == "buscar_normas" else [],
+                protocolo=(
+                    resultado.protocolo
+                    if nome == "registrar_solicitacao" and resultado_tool == "sucesso"
+                    else None
+                ),
+                erro_tipo="tool_error" if resultado_tool == "erro" else None,
+            )
+
+        tools = [str(item.get("tool", "desconhecida")) for item in resultado.eventos_tools]
+        motivos = {
+            "erro": "erro_controlado",
+            "sem_evidencia": "abstencao",
+            "recusada": "recusa",
+            "pendente_dados": "aguardando_dados",
+            "pendente_confirmacao": "aguardando_confirmacao",
+            "registrada": "registro_confirmado",
+            "cancelada": "cancelamento",
+        }
+        self._registrar_evento(
+            run_id=self.run_id,
+            turn_id=turn_id,
+            session_id=sessao,
+            node="saida",
+            evento="turno_com_erro" if resultado.status == "erro" else "turno_concluido",
+            status=resultado.status,
+            fontes=resultado.fontes,
+            tools=tools,
+            protocolo=resultado.protocolo,
+            rodadas=resultado.rodadas,
+            duracao_ms=(perf_counter() - inicio) * 1000,
+            erro_tipo=erro_tipo,
+            fim_motivo=motivos.get(resultado.status, "resposta_final"),
         )
+        return resultado
