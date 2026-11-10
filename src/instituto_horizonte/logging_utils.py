@@ -11,6 +11,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from instituto_horizonte.config import RAIZ_PROJETO
+from instituto_horizonte.safety import MotivoRejeicao
 
 
 EventoNome = Literal[
@@ -45,6 +46,7 @@ class EventoAuditoria(BaseModel):
     erro_tipo: str | None = None
     fim_motivo: str | None = None
     tentativa: int | None = Field(default=None, ge=1)
+    motivo_validacao: MotivoRejeicao | None = None
 
 
 class Auditoria(Protocol):

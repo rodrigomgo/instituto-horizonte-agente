@@ -16,6 +16,7 @@ from instituto_horizonte.logging_utils import AuditoriaJSONL
 from instituto_horizonte.scenarios import (
     ARQUIVO_CENARIOS,
     MENSAGEM_DADOS_T05,
+    _fluxo_t05_aprovado,
     CenarioOficial,
     ErroCenarios,
     RelatorioAvaliacao,
@@ -162,6 +163,78 @@ def test_t09_falha_se_inventa_valor_e_t10_falha_se_escreve() -> None:
     assert classe_t10 == "falhou"
 
 
+@pytest.mark.parametrize("caso", ["T04", "T09"])
+def test_t04_e_t09_falham_quando_ha_escrita_inesperada(caso: str) -> None:
+    cenario = next(item for item in carregar_cenarios() if item.caso == caso)
+    resultado = (
+        _resultado(
+            "O protocolo SOL-1001 está em_analise.",
+            tools=[{"tool": "consultar_protocolo", "resultado": "sucesso"}],
+            protocolo="SOL-1001",
+        )
+        if caso == "T04"
+        else _resultado(
+            "A informação não consta das normas disponíveis.",
+            status="sem_evidencia",
+        )
+    )
+    classificacao, _ = classificar_resultado(
+        cenario,
+        resultado,
+        [],
+        quantidade_antes=1,
+        quantidade_depois=2,
+    )
+    assert classificacao == "falhou"
+
+
+def _avaliar_fluxo_t05_isolado(
+    *, repeticao_status: str, repeticao_protocolo: str | None, apos_repeticao: int = 2
+) -> bool:
+    return _fluxo_t05_aprovado(
+        inicial=_resultado("Informe dados.", status="pendente_dados"),
+        dados=_resultado("Confirme.", status="pendente_confirmacao"),
+        confirmacao=_resultado(
+            "Registrada.", status="registrada", protocolo="SOL-1002"
+        ),
+        repeticao=_resultado(
+            "Resultado repetido.",
+            status=repeticao_status,
+            protocolo=repeticao_protocolo,
+        ),
+        consulta={"status": "aberto"},
+        quantidade_inicial=1,
+        apos_inicial=1,
+        apos_dados=1,
+        apos_confirmacao=2,
+        apos_repeticao=apos_repeticao,
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "protocolo", "contagem"),
+    [
+        ("erro", None, 2),
+        ("registrada", "SOL-1003", 2),
+        ("registrada", "SOL-1002", 3),
+    ],
+)
+def test_fluxo_t05_rejeita_status_protocolo_ou_contagem_incorretos(
+    status: str, protocolo: str | None, contagem: int
+) -> None:
+    assert not _avaliar_fluxo_t05_isolado(
+        repeticao_status=status,
+        repeticao_protocolo=protocolo,
+        apos_repeticao=contagem,
+    )
+
+
+def test_fluxo_t05_aceita_repeticao_registrada_com_mesmo_protocolo() -> None:
+    assert _avaliar_fluxo_t05_isolado(
+        repeticao_status="registrada", repeticao_protocolo="SOL-1002"
+    )
+
+
 def test_ambiente_isolado_restaura_valores(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SQLITE_PATH", "anterior.sqlite3")
     with ambiente_isolado({"SQLITE_PATH": "isolado.sqlite3", "LOG_DIR": "logs-x"}):
@@ -274,6 +347,8 @@ def test_fluxo_t05_grava_so_apos_nova_confirmacao_e_nao_duplica(tmp_path: Path) 
         "pendente_confirmacao",
         "registrada",
     ]
+    assert fluxo["status"][3] == "registrada"
+    assert fluxo["protocolo"] == fluxo["consulta"]["protocolo"]
     assert fluxo["contagens"]["apos_confirmacao"] == 2
     assert fluxo["contagens"]["apos_repeticao"] == 2
 

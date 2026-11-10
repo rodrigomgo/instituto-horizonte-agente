@@ -22,6 +22,7 @@ from instituto_horizonte.safety import (
     evidencia_sustenta_pergunta,
     pergunta_exige_evidencia,
     validar_resposta_backend,
+    validar_resposta_backend_diagnosticada,
 )
 
 
@@ -119,6 +120,77 @@ def test_fonte_real_e_fato_compativel_sao_preservados() -> None:
     )
     assert resposta.status == "respondida"
     assert resposta.fontes == ["ACAD-001"]
+
+
+@pytest.mark.parametrize(
+    ("resposta", "pergunta", "resultados", "motivo"),
+    [
+        (
+            "Resposta conforme ACAD-012.",
+            "Qual é o prazo da declaração?",
+            [norma()],
+            "citacao_nao_recuperada",
+        ),
+        (
+            "Use o canal indicado, conforme ACAD-001.",
+            "Como funciona o trancamento?",
+            [norma(conteudo="A biblioteca digital usa o portal.")],
+            "sem_sobreposicao",
+        ),
+        (
+            "O edital está descrito em ACAD-001.",
+            "Qual é a regra do edital 2027?",
+            [norma(conteudo="O edital contém regras gerais sem ano definido.")],
+            "numero_pergunta_ausente",
+        ),
+        (
+            "A frequência está na norma ACAD-001.",
+            "Qual é a frequência mínima?",
+            [norma(conteudo="A frequência mínima segue o plano de ensino.")],
+            "fato_numerico_sem_evidencia",
+        ),
+        (
+            "O prazo é 5 dias, conforme ACAD-001.",
+            "Qual é o prazo da declaração?",
+            [norma()],
+            "numero_resposta_incompativel",
+        ),
+        (
+            "A matrícula segue a norma.",
+            "Como funciona a matrícula?",
+            [],
+            "sem_fontes_confiaveis",
+        ),
+    ],
+)
+def test_diagnostico_estavel_para_cada_categoria_de_rejeicao(
+    resposta: str,
+    pergunta: str,
+    resultados: list[dict[str, Any]],
+    motivo: str,
+) -> None:
+    validada, observado = validar_resposta_backend_diagnosticada(
+        resposta_candidata=resposta,
+        pergunta=pergunta,
+        resultados_normas=resultados,
+        resultado_protocolo=None,
+        erros=[],
+    )
+    assert validada.status == "sem_evidencia"
+    assert observado == motivo
+
+
+def test_diagnostico_valido_preserva_aprovacao_sem_motivo() -> None:
+    validada, motivo = validar_resposta_backend_diagnosticada(
+        resposta_candidata="O prazo é de 3 dias úteis, conforme ACAD-001.",
+        pergunta="Qual é o prazo da declaração de matrícula?",
+        resultados_normas=[norma()],
+        resultado_protocolo=None,
+        erros=[],
+    )
+    assert validada.status == "respondida"
+    assert validada.fontes == ["ACAD-001"]
+    assert motivo is None
 
 
 def test_fonte_inventada_substitui_texto_por_abstencao() -> None:

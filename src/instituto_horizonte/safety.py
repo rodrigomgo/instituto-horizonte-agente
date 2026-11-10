@@ -21,6 +21,14 @@ StatusResposta = Literal[
     "recusada",
     "erro",
 ]
+MotivoRejeicao = Literal[
+    "citacao_nao_recuperada",
+    "sem_sobreposicao",
+    "numero_pergunta_ausente",
+    "fato_numerico_sem_evidencia",
+    "numero_resposta_incompativel",
+    "sem_fontes_confiaveis",
+]
 
 PADRAO_FONTE = re.compile(r"^ACAD-\d{3}$")
 PADRAO_CITACAO = re.compile(r"\bACAD[-‑–—](\d{3})\b", re.IGNORECASE)
@@ -181,26 +189,44 @@ def _evidencias_confiaveis(
     return evidencias
 
 
-def _evidencia_sustenta(pergunta: str, resposta: str, corpus: str) -> bool:
+def _diagnosticar_sustentacao(
+    pergunta: str, resposta: str, corpus: str
+) -> MotivoRejeicao | None:
+    """Explica uma rejeição sem retornar qualquer conteúdo conversacional."""
+
     if not corpus.strip():
-        return False
+        return "sem_fontes_confiaveis"
     tokens_pergunta = _tokens(pergunta)
     tokens_corpus = _tokens(corpus)
     if not tokens_pergunta.intersection(tokens_corpus):
-        return False
+        return "sem_sobreposicao"
 
     numeros_pergunta = _numeros(pergunta)
     numeros_corpus = _numeros(corpus)
     if numeros_pergunta and not numeros_pergunta.issubset(numeros_corpus):
-        return False
+        return "numero_pergunta_ausente"
 
     if tokens_pergunta.intersection(TERMOS_FATO_ESPECIFICO) and not numeros_corpus:
-        return False
+        return "fato_numerico_sem_evidencia"
 
     numeros_resposta = _numeros(resposta)
     if numeros_resposta and not numeros_resposta.issubset(numeros_corpus):
-        return False
-    return True
+        return "numero_resposta_incompativel"
+    return None
+
+
+def _evidencia_sustenta(pergunta: str, resposta: str, corpus: str) -> bool:
+    return _diagnosticar_sustentacao(pergunta, resposta, corpus) is None
+
+
+def diagnosticar_evidencia_pergunta(
+    pergunta: str, resultados: Sequence[Mapping[str, Any]]
+) -> MotivoRejeicao | None:
+    """Diagnostica o gate anterior ao modelo sem expor pergunta ou documentos."""
+
+    evidencias = _evidencias_confiaveis(resultados)
+    corpus = " ".join(evidencias.values())
+    return _diagnosticar_sustentacao(pergunta, "", corpus)
 
 
 def evidencia_sustenta_pergunta(
@@ -208,21 +234,107 @@ def evidencia_sustenta_pergunta(
 ) -> bool:
     """Faz o gate conservador que independe de texto gerado pelo modelo."""
 
-    evidencias = _evidencias_confiaveis(resultados)
-    corpus = " ".join(evidencias.values())
-    if not corpus.strip():
-        return False
-    tokens_pergunta = _tokens(pergunta)
-    tokens_corpus = _tokens(corpus)
-    if not tokens_pergunta.intersection(tokens_corpus):
-        return False
-    numeros_pergunta = _numeros(pergunta)
-    numeros_corpus = _numeros(corpus)
-    if numeros_pergunta and not numeros_pergunta.issubset(numeros_corpus):
-        return False
-    if tokens_pergunta.intersection(TERMOS_FATO_ESPECIFICO) and not numeros_corpus:
-        return False
-    return True
+    return diagnosticar_evidencia_pergunta(pergunta, resultados) is None
+
+
+def validar_resposta_backend_diagnosticada(
+    *,
+    resposta_candidata: str,
+    pergunta: str,
+    resultados_normas: Sequence[Mapping[str, Any]],
+    resultado_protocolo: Mapping[str, Any] | None,
+    erros: Sequence[str],
+) -> tuple[RespostaAgente, MotivoRejeicao | None]:
+    """Valida a resposta e retorna somente um código seguro quando houver rejeição."""
+
+    if erros:
+        return (
+            RespostaAgente(
+                resposta=str(erros[-1]), status="erro", fontes=[], protocolo=None
+            ),
+            None,
+        )
+
+    if resultado_protocolo is not None:
+        protocolo = resultado_protocolo.get("protocolo")
+        encontrado = resultado_protocolo.get("encontrado")
+        status = resultado_protocolo.get("status")
+        if encontrado is True and isinstance(protocolo, str) and isinstance(status, str):
+            return (
+                RespostaAgente(
+                    resposta=f"O protocolo {protocolo} está com status {status}.",
+                    status="respondida",
+                    fontes=[],
+                    protocolo=protocolo,
+                ),
+                None,
+            )
+        if encontrado is False and isinstance(protocolo, str):
+            return (
+                RespostaAgente(
+                    resposta=f"O protocolo {protocolo} não foi encontrado.",
+                    status="protocolo_nao_encontrado",
+                    fontes=[],
+                    protocolo=protocolo,
+                ),
+                None,
+            )
+        return (
+            RespostaAgente(
+                resposta="Falha controlada ao validar a consulta de protocolo.",
+                status="erro",
+                fontes=[],
+                protocolo=None,
+            ),
+            None,
+        )
+
+    texto = resposta_candidata.strip()
+    if not texto:
+        return (
+            RespostaAgente(
+                resposta="O modelo não produziu uma resposta válida.",
+                status="erro",
+                fontes=[],
+                protocolo=None,
+            ),
+            None,
+        )
+
+    evidencias = _evidencias_confiaveis(resultados_normas)
+    fontes = sorted(evidencias)
+    consulta_normativa = bool(resultados_normas) or pergunta_exige_evidencia(pergunta)
+    if consulta_normativa:
+        citacoes = {f"ACAD-{sufixo}" for sufixo in PADRAO_CITACAO.findall(texto)}
+        if not citacoes.issubset(fontes):
+            return _resposta_segura_sem_evidencia(), "citacao_nao_recuperada"
+        fontes_declaradas = sorted(citacoes) if citacoes else fontes
+        corpus = " ".join(evidencias[fonte] for fonte in fontes_declaradas)
+        motivo = (
+            "sem_fontes_confiaveis"
+            if not fontes
+            else _diagnosticar_sustentacao(pergunta, texto, corpus)
+        )
+        if motivo is not None:
+            return _resposta_segura_sem_evidencia(), motivo
+        return (
+            RespostaAgente(
+                resposta=texto,
+                status="respondida",
+                fontes=fontes_declaradas,
+                protocolo=None,
+            ),
+            None,
+        )
+
+    if PADRAO_CITACAO.search(texto):
+        return _resposta_segura_sem_evidencia(), "citacao_nao_recuperada"
+    return (
+        RespostaAgente(
+            resposta=texto, status="respondida", fontes=[], protocolo=None
+        ),
+        None,
+    )
 
 
 def validar_resposta_backend(
@@ -233,67 +345,13 @@ def validar_resposta_backend(
     resultado_protocolo: Mapping[str, Any] | None,
     erros: Sequence[str],
 ) -> RespostaAgente:
-    """Valida fatos contra resultados de Tools, sem confiar em afirmações do LLM."""
+    """Preserva o contrato público do validador sem expor o diagnóstico interno."""
 
-    if erros:
-        return RespostaAgente(
-            resposta=str(erros[-1]), status="erro", fontes=[], protocolo=None
-        )
-
-    if resultado_protocolo is not None:
-        protocolo = resultado_protocolo.get("protocolo")
-        encontrado = resultado_protocolo.get("encontrado")
-        status = resultado_protocolo.get("status")
-        if encontrado is True and isinstance(protocolo, str) and isinstance(status, str):
-            return RespostaAgente(
-                resposta=f"O protocolo {protocolo} está com status {status}.",
-                status="respondida",
-                fontes=[],
-                protocolo=protocolo,
-            )
-        if encontrado is False and isinstance(protocolo, str):
-            return RespostaAgente(
-                resposta=f"O protocolo {protocolo} não foi encontrado.",
-                status="protocolo_nao_encontrado",
-                fontes=[],
-                protocolo=protocolo,
-            )
-        return RespostaAgente(
-            resposta="Falha controlada ao validar a consulta de protocolo.",
-            status="erro",
-            fontes=[],
-            protocolo=None,
-        )
-
-    texto = resposta_candidata.strip()
-    if not texto:
-        return RespostaAgente(
-            resposta="O modelo não produziu uma resposta válida.",
-            status="erro",
-            fontes=[],
-            protocolo=None,
-        )
-
-    evidencias = _evidencias_confiaveis(resultados_normas)
-    fontes = sorted(evidencias)
-    consulta_normativa = bool(resultados_normas) or pergunta_exige_evidencia(pergunta)
-    if consulta_normativa:
-        citacoes = {f"ACAD-{sufixo}" for sufixo in PADRAO_CITACAO.findall(texto)}
-        if not citacoes.issubset(fontes):
-            return _resposta_segura_sem_evidencia()
-        fontes_declaradas = sorted(citacoes) if citacoes else fontes
-        corpus = " ".join(evidencias[fonte] for fonte in fontes_declaradas)
-        if not fontes or not _evidencia_sustenta(pergunta, texto, corpus):
-            return _resposta_segura_sem_evidencia()
-        return RespostaAgente(
-            resposta=texto,
-            status="respondida",
-            fontes=fontes_declaradas,
-            protocolo=None,
-        )
-
-    if PADRAO_CITACAO.search(texto):
-        return _resposta_segura_sem_evidencia()
-    return RespostaAgente(
-        resposta=texto, status="respondida", fontes=[], protocolo=None
+    resposta, _ = validar_resposta_backend_diagnosticada(
+        resposta_candidata=resposta_candidata,
+        pergunta=pergunta,
+        resultados_normas=resultados_normas,
+        resultado_protocolo=resultado_protocolo,
+        erros=erros,
     )
+    return resposta

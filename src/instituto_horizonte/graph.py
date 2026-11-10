@@ -41,9 +41,10 @@ from instituto_horizonte.logging_utils import Auditoria, AuditoriaJSONL
 from instituto_horizonte.protocols import RespostaConsultaProtocolo, consultar_protocolo
 from instituto_horizonte.retrieval import RespostaBuscaNormas, buscar_normas
 from instituto_horizonte.safety import (
+    MotivoRejeicao,
     RespostaAgente,
-    evidencia_sustenta_pergunta,
-    validar_resposta_backend,
+    diagnosticar_evidencia_pergunta,
+    validar_resposta_backend_diagnosticada,
 )
 from instituto_horizonte.solicitacoes import DadosSolicitacao, GestorRascunhos
 
@@ -78,6 +79,7 @@ class AgentState(TypedDict, total=False):
     run_id: str
     turn_id: str
     erro_tipo: str | None
+    motivo_validacao: MotivoRejeicao | None
 
 
 class ResultadoTurno(RespostaAgente):
@@ -384,9 +386,10 @@ class AgenteAcademico:
             busca_executada = any(
                 mensagem.name == "buscar_normas" for mensagem in mensagens_tools
             )
-            if busca_executada and not evidencia_sustenta_pergunta(
+            motivo_gate = diagnosticar_evidencia_pergunta(
                 estado["mensagem_usuario_confiavel"], resultados_normas
-            ):
+            )
+            if busca_executada and motivo_gate is not None:
                 resposta = RespostaAgente(
                     resposta=(
                         "A informação solicitada não consta das normas disponíveis."
@@ -401,6 +404,7 @@ class AgenteAcademico:
                     "evidencias": [],
                     "resultados_normas": resultados_normas,
                     "resultado_protocolo": resultado_protocolo,
+                    "motivo_validacao": motivo_gate,
                     "ultima_resposta": resposta.model_dump(mode="json"),
                 }
             if rodadas >= self.config.max_agent_rounds:
@@ -432,7 +436,7 @@ class AgenteAcademico:
                 "erro_tipo": "limite_rodadas",
                 "ultima_resposta": {"resposta": texto, "status": "erro"},
             }
-        resposta = validar_resposta_backend(
+        resposta, motivo_validacao = validar_resposta_backend_diagnosticada(
             resposta_candidata=_texto_mensagem(ultima),
             pergunta=estado["mensagem_usuario_confiavel"],
             resultados_normas=estado.get("resultados_normas", []),
@@ -441,6 +445,7 @@ class AgenteAcademico:
         )
         return {
             "rota": "saida",
+            "motivo_validacao": motivo_validacao,
             "ultima_resposta": resposta.model_dump(mode="json"),
         }
 
@@ -533,6 +538,7 @@ class AgenteAcademico:
             raise ValueError("sessão e mensagem do usuário são obrigatórias")
         turn_id = uuid.uuid4().hex
         inicio = perf_counter()
+        motivo_validacao: MotivoRejeicao | None = None
         self._registrar_evento(
             run_id=self.run_id,
             turn_id=turn_id,
@@ -553,6 +559,7 @@ class AgenteAcademico:
                     "rodadas": 0,
                     "erros": [],
                     "erro_tipo": None,
+                    "motivo_validacao": None,
                     "run_id": self.run_id,
                     "turn_id": turn_id,
                     "ultima_resposta": None,
@@ -568,6 +575,7 @@ class AgenteAcademico:
                 erros=list(estado.get("erros", [])),
             )
             erro_tipo = estado.get("erro_tipo")
+            motivo_validacao = estado.get("motivo_validacao")
         except Exception as error:
             erro_tipo = f"orquestracao_{type(error).__name__}"
             texto = "Falha controlada na orquestração."
@@ -635,5 +643,6 @@ class AgenteAcademico:
             duracao_ms=(perf_counter() - inicio) * 1000,
             erro_tipo=erro_tipo,
             fim_motivo=motivos.get(resultado.status, "resposta_final"),
+            motivo_validacao=motivo_validacao,
         )
         return resultado

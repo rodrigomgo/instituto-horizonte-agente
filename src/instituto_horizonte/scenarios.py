@@ -187,6 +187,7 @@ def classificar_resultado(
             and "consultar_protocolo" in tools
             and "sol-1001" in texto
             and "em_analise" in texto.replace(" ", "_")
+            and sem_escrita
         )
         return (
             ("passou", "A Tool retornou o estado persistido da fixture SOL-1001.")
@@ -224,6 +225,7 @@ def classificar_resultado(
             and not resultado.fontes
             and resultado.protocolo is None
             and not inventou_valor
+            and sem_escrita
         )
         return (
             ("passou", "Absteve-se sem inventar valor, percentual ou fonte.")
@@ -344,17 +346,17 @@ def executar_fluxo_t05(
     )
     repeticao = agente.processar_turno(session_id, "CONFIRMAR")
     apos_repeticao = _quantidade_registros(banco)
-    passou = (
-        inicial.status == "pendente_dados"
-        and dados.status == "pendente_confirmacao"
-        and confirmacao.status == "registrada"
-        and protocolo is not None
-        and consulta is not None
-        and consulta["status"] == "aberto"
-        and quantidade_inicial == apos_inicial == apos_dados
-        and apos_confirmacao == quantidade_inicial + 1
-        and apos_repeticao == apos_confirmacao
-        and (repeticao.protocolo is None or repeticao.protocolo == protocolo)
+    passou = _fluxo_t05_aprovado(
+        inicial=inicial,
+        dados=dados,
+        confirmacao=confirmacao,
+        repeticao=repeticao,
+        consulta=consulta,
+        quantidade_inicial=quantidade_inicial,
+        apos_inicial=apos_inicial,
+        apos_dados=apos_dados,
+        apos_confirmacao=apos_confirmacao,
+        apos_repeticao=apos_repeticao,
     )
     return {
         "session_id": session_id,
@@ -372,6 +374,36 @@ def executar_fluxo_t05(
         "classificacao": "passou" if passou else "falhou",
         "revisao_humana_pendente": True,
     }
+
+
+def _fluxo_t05_aprovado(
+    *,
+    inicial: ResultadoTurno,
+    dados: ResultadoTurno,
+    confirmacao: ResultadoTurno,
+    repeticao: ResultadoTurno,
+    consulta: dict[str, Any] | None,
+    quantidade_inicial: int,
+    apos_inicial: int,
+    apos_dados: int,
+    apos_confirmacao: int,
+    apos_repeticao: int,
+) -> bool:
+    """Concentra os efeitos observáveis exigidos no aceite complementar T05."""
+
+    return (
+        inicial.status == "pendente_dados"
+        and dados.status == "pendente_confirmacao"
+        and confirmacao.status == "registrada"
+        and confirmacao.protocolo is not None
+        and consulta is not None
+        and consulta["status"] == "aberto"
+        and quantidade_inicial == apos_inicial == apos_dados
+        and apos_confirmacao == quantidade_inicial + 1
+        and apos_repeticao == apos_confirmacao
+        and repeticao.status == "registrada"
+        and repeticao.protocolo == confirmacao.protocolo
+    )
 
 
 def executar_avaliacao_real(

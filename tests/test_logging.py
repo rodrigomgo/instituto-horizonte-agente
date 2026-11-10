@@ -216,13 +216,19 @@ def test_busca_recuperada_mas_abstida_preserva_origem(tmp_path: Path) -> None:
     resposta = agente.processar_turno(
         "t09", "Qual o valor oficial da bolsa do edital 2027?"
     )
+    eventos = ler_eventos(caminho)
     evento_tool = next(
-        item for item in ler_eventos(caminho) if item["evento"] == "tool_concluida"
+        item for item in eventos if item["evento"] == "tool_concluida"
     )
+    evento_final = eventos[-1]
     assert resposta.status == "sem_evidencia"
     assert resposta.fontes == []
     assert evento_tool["fontes"] == []
     assert evento_tool["fontes_recuperadas"] == ["ACAD-001"]
+    assert evento_final["motivo_validacao"] == "sem_sobreposicao"
+    serializado = json.dumps(evento_final, ensure_ascii=False)
+    assert "valor oficial" not in serializado
+    assert "O prazo é" not in serializado
 
 
 def test_duas_buscas_preservam_fontes_por_chamada_sem_conteudo(tmp_path: Path) -> None:
