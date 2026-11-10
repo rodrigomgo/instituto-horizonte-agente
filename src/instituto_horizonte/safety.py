@@ -71,10 +71,29 @@ PALAVRAS_NUMERICAS = {
     "cem": 100,
     "cento": 100,
 }
+PALAVRAS_NUMERICAS_NAO_SUPORTADAS = {
+    "mil",
+    "milhar",
+    "milhares",
+    "milhao",
+    "milhoes",
+    "bilhao",
+    "bilhoes",
+    "trilhao",
+    "trilhoes",
+}
 PADRAO_PALAVRA_NUMERICA = "(?:" + "|".join(
     sorted(PALAVRAS_NUMERICAS, key=len, reverse=True)
 ) + ")"
 PADRAO_VALOR_EXTENSO = rf"{PADRAO_PALAVRA_NUMERICA}(?:\s+e\s+{PADRAO_PALAVRA_NUMERICA}){{0,2}}"
+PADRAO_PALAVRA_NUMERICA_NAO_SUPORTADA = "(?:" + "|".join(
+    sorted(PALAVRAS_NUMERICAS_NAO_SUPORTADAS, key=len, reverse=True)
+) + ")"
+PADRAO_VALOR_EXTENSO_NAO_SUPORTADO = (
+    rf"{PADRAO_PALAVRA_NUMERICA_NAO_SUPORTADA}"
+    rf"(?:\s+e\s+(?:{PADRAO_PALAVRA_NUMERICA}|"
+    rf"{PADRAO_PALAVRA_NUMERICA_NAO_SUPORTADA})){{0,2}}"
+)
 PADRAO_VALOR = rf"(?:{PADRAO_VALOR_DIGITOS}|{PADRAO_VALOR_EXTENSO})"
 PADRAO_PERCENTUAL = re.compile(
     rf"\b(?P<valor>{PADRAO_VALOR})\s*(?:%|por\s+cento)(?!\w)"
@@ -84,11 +103,11 @@ PADRAO_DIAS = re.compile(
     rf"(?:\s+(?P<tipo>uteis|corridos))?\b"
 )
 PADRAO_DIAS_DESCONHECIDO = re.compile(
-    r"\b(?P<valor>[a-z]+(?:\s+e\s+[a-z]+){0,2})\s+dias?"
+    rf"\b(?P<valor>{PADRAO_VALOR_EXTENSO_NAO_SUPORTADO})\s+dias?"
     r"(?:\s+(?:uteis|corridos))?\b"
 )
 PADRAO_PERCENTUAL_DESCONHECIDO = re.compile(
-    r"\b(?P<valor>[a-z]+(?:\s+e\s+[a-z]+){0,2})\s+por\s+cento\b"
+    rf"\b(?P<valor>{PADRAO_VALOR_EXTENSO_NAO_SUPORTADO})\s+por\s+cento\b"
 )
 PADRAO_MOEDA_BRL = re.compile(rf"\br\$\s*(?P<valor>{PADRAO_VALOR_DIGITOS})\b")
 PADRAO_NUMERO_SIMPLES = re.compile(rf"(?<![\w‐‑–—-]){PADRAO_VALOR_DIGITOS}")

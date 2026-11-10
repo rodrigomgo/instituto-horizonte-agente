@@ -304,6 +304,63 @@ def test_palavra_numerica_fora_do_vocabulario_nao_escapa_da_validacao() -> None:
     assert motivo == "numero_resposta_incompativel"
 
 
+@pytest.mark.parametrize(
+    "expressao",
+    [
+        "O atendimento ocorre em dias úteis.",
+        "O serviço funciona todos os dias.",
+        "A resposta será enviada nos próximos dias.",
+        "A análise termina dentro de alguns dias.",
+    ],
+)
+def test_expressao_temporal_sem_quantidade_nao_gera_fato_numerico(
+    expressao: str,
+) -> None:
+    assert _numeros(expressao) == set()
+    validada, motivo = validar_resposta_backend_diagnosticada(
+        resposta_candidata=f"{expressao} Conforme ACAD-002.",
+        pergunta="Como funciona o atendimento?",
+        resultados_normas=[
+            norma(
+                identificador="ACAD-002",
+                conteudo=f"O atendimento institucional informa: {expressao}",
+            )
+        ],
+        resultado_protocolo=None,
+        erros=[],
+    )
+    assert validada.status == "respondida"
+    assert motivo is None
+
+
+def test_palavra_comum_antes_de_por_cento_nao_gera_fato_numerico() -> None:
+    expressao = "O índice varia por cento de referência."
+    assert _numeros(expressao) == set()
+    validada, motivo = validar_resposta_backend_diagnosticada(
+        resposta_candidata=f"{expressao} Conforme ACAD-002.",
+        pergunta="Como varia o índice de referência?",
+        resultados_normas=[
+            norma(identificador="ACAD-002", conteudo=expressao)
+        ],
+        resultado_protocolo=None,
+        erros=[],
+    )
+    assert validada.status == "respondida"
+    assert motivo is None
+
+
+@pytest.mark.parametrize("expressao", ["mil dias", "mil por cento"])
+def test_numero_nao_suportado_continua_rejeitado(expressao: str) -> None:
+    assert any(tipo == "numero_desconhecido" for tipo, _ in _numeros(expressao))
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é a quantidade aplicável?",
+        resposta=f"A quantidade é {expressao}.",
+        conteudo="O prazo ou percentual aplicável é 5 dias.",
+    )
+    assert validada.status == "sem_evidencia"
+    assert motivo == "numero_resposta_incompativel"
+
+
 def test_fonte_inventada_substitui_texto_por_abstencao() -> None:
     resposta = validar(
         "O prazo é de 3 dias, conforme ACAD-012.", resultados=[norma()]
