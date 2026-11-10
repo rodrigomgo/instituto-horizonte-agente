@@ -35,6 +35,7 @@ class EventoAuditoria(BaseModel):
     evento: EventoNome
     status: str | None = None
     fontes: list[str] = Field(default_factory=list)
+    fontes_recuperadas: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
     tool: str | None = None
     resultado: str | None = None
@@ -103,4 +104,3 @@ class AuditoriaJSONL:
             return True
         except (OSError, TypeError, ValueError):
             return False
-

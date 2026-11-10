@@ -355,13 +355,22 @@ class AgenteAcademico:
                         busca = RespostaBuscaNormas.model_validate(conteudo)
                         documentos = [item.model_dump(mode="json") for item in busca.resultados]
                         resultados_normas.extend(documentos)
-                        evidencias.update(
+                        fontes_recuperadas = sorted(
                             item.id for item in busca.resultados if item.id == item.fonte
                         )
+                        evidencias.update(fontes_recuperadas)
+                        evento = {
+                            "tool": nome,
+                            "resultado": "recebido",
+                            "fontes_recuperadas": fontes_recuperadas,
+                        }
                     elif nome == "consultar_protocolo":
                         consulta = RespostaConsultaProtocolo.model_validate(conteudo)
                         resultado_protocolo = consulta.model_dump(mode="json")
-                    eventos.append({"tool": nome, "resultado": "recebido"})
+                        evento = {"tool": nome, "resultado": "recebido"}
+                    else:
+                        evento = {"tool": nome, "resultado": "recebido"}
+                    eventos.append(evento)
             except (json.JSONDecodeError, TypeError, ValidationError):
                 texto = "A Tool retornou uma saída estruturada inválida."
                 return {
@@ -588,6 +597,11 @@ class AgenteAcademico:
                 evento="tool_concluida",
                 tool=nome,
                 resultado=resultado_tool,
+                fontes_recuperadas=(
+                    list(evento_tool.get("fontes_recuperadas", []))
+                    if nome == "buscar_normas"
+                    else []
+                ),
                 fontes=resultado.fontes if nome == "buscar_normas" else [],
                 protocolo=(
                     resultado.protocolo

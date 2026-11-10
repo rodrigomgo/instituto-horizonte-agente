@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-010 concluídas; CLI interativa revisada e aprovada.
+**Estado:** TSK-001 a TSK-011 concluídas; observabilidade e retry revisados e aprovados.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -324,7 +324,7 @@ Durante o atendimento, cada turno gera eventos JSONL em `artifacts/logs/agent.js
 Get-Content artifacts/logs/agent.jsonl -Tail 20
 ```
 
-Cada evento usa um schema fechado e pode conter timestamp UTC, `run_id`, `turn_id`, `session_id`, evento, nó, status, Tools, fontes, protocolo, rodadas, duração, categoria de erro e motivo de encerramento. Perguntas, prompts, respostas brutas, conteúdo documental, argumentos de Tools, chaves, senhas e justificativas não são registrados.
+Cada evento usa um schema fechado e pode conter timestamp UTC, `run_id`, `turn_id`, `session_id`, evento, nó, status, Tools, fontes, protocolo, rodadas, duração, categoria de erro e motivo de encerramento. Eventos de `buscar_normas` distinguem `fontes_recuperadas` daquela chamada das `fontes` aceitas na resposta final. Perguntas, prompts, respostas brutas, conteúdo documental, argumentos de Tools, chaves, senhas e justificativas não são registrados.
 
 Falhas transitórias da chamada ao modelo — HTTP 429, timeout, conexão e HTTP 5xx — permitem no máximo duas novas tentativas, com espera curta e limitada. HTTP 400, 401 e 403 não são repetidos. O retry interno do `ChatGroq` permanece desativado para evitar acúmulo. Tools e operações de escrita nunca são repetidas por essa política.
 
@@ -348,7 +348,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-011 está implementada e permanece `Em andamento` até revisão humana. A TSK-012, avaliação completa dos dez cenários, não foi iniciada.
+A TSK-011 foi concluída após revisão técnica do commit `8817bd1` e correção da rastreabilidade por chamada de recuperação. A próxima etapa planejada é a TSK-012, avaliação completa dos dez cenários; ela não foi iniciada nesta entrega.
 
 ## Referências de rastreabilidade
 
