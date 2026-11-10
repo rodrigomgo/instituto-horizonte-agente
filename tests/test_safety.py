@@ -19,9 +19,11 @@ from instituto_horizonte.graph import AgenteAcademico
 from instituto_horizonte.logging_utils import AuditoriaNula
 from instituto_horizonte.safety import (
     RespostaAgente,
+    _numeros,
     evidencia_sustenta_pergunta,
     pergunta_exige_evidencia,
     validar_resposta_backend,
+    validar_resposta_backend_diagnosticada,
 )
 
 
@@ -119,6 +121,244 @@ def test_fonte_real_e_fato_compativel_sao_preservados() -> None:
     )
     assert resposta.status == "respondida"
     assert resposta.fontes == ["ACAD-001"]
+
+
+@pytest.mark.parametrize(
+    ("resposta", "pergunta", "resultados", "motivo"),
+    [
+        (
+            "Resposta conforme ACAD-012.",
+            "Qual é o prazo da declaração?",
+            [norma()],
+            "citacao_nao_recuperada",
+        ),
+        (
+            "Use o canal indicado, conforme ACAD-001.",
+            "Como funciona o trancamento?",
+            [norma(conteudo="A biblioteca digital usa o portal.")],
+            "sem_sobreposicao",
+        ),
+        (
+            "O edital está descrito em ACAD-001.",
+            "Qual é a regra do edital 2027?",
+            [norma(conteudo="O edital contém regras gerais sem ano definido.")],
+            "numero_pergunta_ausente",
+        ),
+        (
+            "A frequência está na norma ACAD-001.",
+            "Qual é a frequência mínima?",
+            [norma(conteudo="A frequência mínima segue o plano de ensino.")],
+            "fato_numerico_sem_evidencia",
+        ),
+        (
+            "O prazo é 5 dias, conforme ACAD-001.",
+            "Qual é o prazo da declaração?",
+            [norma()],
+            "numero_resposta_incompativel",
+        ),
+        (
+            "A matrícula segue a norma.",
+            "Como funciona a matrícula?",
+            [],
+            "sem_fontes_confiaveis",
+        ),
+    ],
+)
+def test_diagnostico_estavel_para_cada_categoria_de_rejeicao(
+    resposta: str,
+    pergunta: str,
+    resultados: list[dict[str, Any]],
+    motivo: str,
+) -> None:
+    validada, observado = validar_resposta_backend_diagnosticada(
+        resposta_candidata=resposta,
+        pergunta=pergunta,
+        resultados_normas=resultados,
+        resultado_protocolo=None,
+        erros=[],
+    )
+    assert validada.status == "sem_evidencia"
+    assert observado == motivo
+
+
+def test_diagnostico_valido_preserva_aprovacao_sem_motivo() -> None:
+    validada, motivo = validar_resposta_backend_diagnosticada(
+        resposta_candidata="O prazo é de 3 dias úteis, conforme ACAD-001.",
+        pergunta="Qual é o prazo da declaração de matrícula?",
+        resultados_normas=[norma()],
+        resultado_protocolo=None,
+        erros=[],
+    )
+    assert validada.status == "respondida"
+    assert validada.fontes == ["ACAD-001"]
+    assert motivo is None
+
+
+def validar_fato_numerico(
+    *, pergunta: str, resposta: str, conteudo: str
+) -> tuple[RespostaAgente, str | None]:
+    del pergunta
+    return validar_resposta_backend_diagnosticada(
+        resposta_candidata=f"{resposta} Conforme ACAD-002.",
+        pergunta="Qual é o prazo, frequência ou valor da regra?",
+        resultados_normas=[
+            norma(
+                identificador="ACAD-002",
+                conteudo=conteudo,
+            )
+        ],
+        resultado_protocolo=None,
+        erros=[],
+    )
+
+
+@pytest.mark.parametrize(
+    ("resposta", "conteudo"),
+    [
+        ("A frequência mínima é 75 por cento.", "A frequência mínima é 75%."),
+        ("A frequência mínima é setenta e cinco por cento.", "A frequência mínima é 75%."),
+        ("O prazo é de três dias úteis.", "O prazo é de 3 dias úteis."),
+        ("O prazo é de cinco dias corridos.", "O prazo é de 5 dias corridos."),
+    ],
+)
+def test_formas_numericas_equivalentes_sao_aceitas(
+    resposta: str, conteudo: str
+) -> None:
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é a regra acadêmica aplicável?",
+        resposta=resposta,
+        conteudo=conteudo,
+    )
+    assert validada.status == "respondida"
+    assert motivo is None
+
+
+@pytest.mark.parametrize(
+    ("resposta", "conteudo"),
+    [
+        ("A frequência mínima é 85%.", "A frequência mínima é 75%."),
+        ("O prazo é de 10 dias corridos.", "O prazo é de 5 dias corridos."),
+        ("O prazo é de 3 dias úteis.", "O prazo é de 3 dias corridos."),
+        ("O valor é R$ 950,00.", "O valor é R$ 900,00."),
+        ("A regra vale para 2026.", "A regra vale para 2027."),
+        ("O prazo é de dez dias.", "O prazo é de 5 dias."),
+    ],
+)
+def test_fatos_numericos_incompativeis_continuam_rejeitados(
+    resposta: str, conteudo: str
+) -> None:
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é a regra acadêmica aplicável?",
+        resposta=resposta,
+        conteudo=conteudo,
+    )
+    assert validada.status == "sem_evidencia"
+    assert motivo == "numero_resposta_incompativel"
+
+
+def test_marcadores_de_lista_nao_sao_fatos_numericos() -> None:
+    resposta = "1. Acesse o portal.\n2. Confira a frequência mínima de 75%.\n3) Confirme."
+    assert _numeros(resposta) == {("percentual", "75")}
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é a frequência mínima?",
+        resposta=resposta,
+        conteudo="A frequência mínima é 75%.",
+    )
+    assert validada.status == "respondida"
+    assert motivo is None
+
+
+def test_numero_de_um_dia_e_decimal_nao_sao_marcadores() -> None:
+    assert _numeros("O prazo é de 1 dia.") == {("dias", "1")}
+    assert _numeros("A nota é 1.5.") == {("numero", "1.5")}
+
+
+def test_ids_nao_sao_fatos_numericos() -> None:
+    assert _numeros("Consulte ACAD-002 e o protocolo SOL-1001.") == set()
+
+
+def test_valor_brasileiro_e_ano_sao_normalizados() -> None:
+    assert _numeros("Edital 2027: valor de R$ 1.200,50.") == {
+        ("ano", "2027"),
+        ("moeda_brl", "1200.5"),
+    }
+
+
+def test_numero_extenso_desconhecido_e_rejeitado_conservadoramente() -> None:
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é o prazo aplicável?",
+        resposta="O prazo é de cento e vinte dias.",
+        conteudo="O prazo é de 120 dias.",
+    )
+    assert validada.status == "sem_evidencia"
+    assert motivo == "numero_resposta_incompativel"
+
+
+def test_palavra_numerica_fora_do_vocabulario_nao_escapa_da_validacao() -> None:
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é o prazo aplicável?",
+        resposta="O prazo é de mil dias.",
+        conteudo="O prazo é de 5 dias.",
+    )
+    assert validada.status == "sem_evidencia"
+    assert motivo == "numero_resposta_incompativel"
+
+
+@pytest.mark.parametrize(
+    "expressao",
+    [
+        "O atendimento ocorre em dias úteis.",
+        "O serviço funciona todos os dias.",
+        "A resposta será enviada nos próximos dias.",
+        "A análise termina dentro de alguns dias.",
+    ],
+)
+def test_expressao_temporal_sem_quantidade_nao_gera_fato_numerico(
+    expressao: str,
+) -> None:
+    assert _numeros(expressao) == set()
+    validada, motivo = validar_resposta_backend_diagnosticada(
+        resposta_candidata=f"{expressao} Conforme ACAD-002.",
+        pergunta="Como funciona o atendimento?",
+        resultados_normas=[
+            norma(
+                identificador="ACAD-002",
+                conteudo=f"O atendimento institucional informa: {expressao}",
+            )
+        ],
+        resultado_protocolo=None,
+        erros=[],
+    )
+    assert validada.status == "respondida"
+    assert motivo is None
+
+
+def test_palavra_comum_antes_de_por_cento_nao_gera_fato_numerico() -> None:
+    expressao = "O índice varia por cento de referência."
+    assert _numeros(expressao) == set()
+    validada, motivo = validar_resposta_backend_diagnosticada(
+        resposta_candidata=f"{expressao} Conforme ACAD-002.",
+        pergunta="Como varia o índice de referência?",
+        resultados_normas=[
+            norma(identificador="ACAD-002", conteudo=expressao)
+        ],
+        resultado_protocolo=None,
+        erros=[],
+    )
+    assert validada.status == "respondida"
+    assert motivo is None
+
+
+@pytest.mark.parametrize("expressao", ["mil dias", "mil por cento"])
+def test_numero_nao_suportado_continua_rejeitado(expressao: str) -> None:
+    assert any(tipo == "numero_desconhecido" for tipo, _ in _numeros(expressao))
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é a quantidade aplicável?",
+        resposta=f"A quantidade é {expressao}.",
+        conteudo="O prazo ou percentual aplicável é 5 dias.",
+    )
+    assert validada.status == "sem_evidencia"
+    assert motivo == "numero_resposta_incompativel"
 
 
 def test_fonte_inventada_substitui_texto_por_abstencao() -> None:

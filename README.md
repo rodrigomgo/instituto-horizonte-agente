@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-011 concluídas; observabilidade e retry revisados e aprovados.
+**Estado:** TSK-001 a TSK-012 concluídas; avaliação automatizada e evidências reais consolidadas.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -21,8 +21,10 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - Tool `registrar_solicitacao` protegida por confirmação confiável e idempotência.
 - `StateGraph` explícito com sessões em memória, Tools de leitura e rota de escrita protegida.
 - Saída `RespostaAgente` validada por Pydantic e por evidências estruturadas das Tools.
+- CLI conversacional e auditoria JSONL sanitizada por turno.
+- Harness automatizado dos dez cenários oficiais, com execução real somente sob `--real`.
 
-Ainda não existe CLI conversacional nem execução automatizada ponta a ponta dos dez cenários. Esses itens pertencem às Tasks posteriores.
+A classificação automática do harness verifica critérios objetivos e foi complementada por execução real e revisão humana na TSK-012.
 
 ## Conteúdo de referência
 
@@ -328,6 +330,39 @@ Cada evento usa um schema fechado e pode conter timestamp UTC, `run_id`, `turn_i
 
 Falhas transitórias da chamada ao modelo — HTTP 429, timeout, conexão e HTTP 5xx — permitem no máximo duas novas tentativas, com espera curta e limitada. HTTP 400, 401 e 403 não são repetidos. O retry interno do `ChatGroq` permanece desativado para evitar acúmulo. Tools e operações de escrita nunca são repetidas por essa política.
 
+## Avaliação dos cenários oficiais — TSK-012
+
+O harness lê `data/cenarios_de_teste_aluno.csv` com separador `;` e `utf-8-sig`, valida exatamente T01–T10 e envia as perguntas sem reescrita. Cada caso usa uma sessão isolada. O banco SQLite, os logs JSONL e os relatórios JSON/Markdown são criados em um diretório exclusivo sob `artifacts/avaliacao/`, ignorado pelo Git; o índice Chroma configurado é somente reutilizado.
+
+Sem `--real`, o comando encerra antes de construir o agente ou chamar um provedor:
+
+```powershell
+python scripts/run_scenarios.py
+```
+
+Depois de preparar o índice e fornecer `GROQ_API_KEY` pelo `.env` local ignorado ou pelo ambiente, execute os dez casos reais:
+
+```powershell
+python scripts/run_scenarios.py --real
+```
+
+Execução seletiva e fluxo complementar de autorização do T05:
+
+```powershell
+python scripts/run_scenarios.py --real --case T03
+python scripts/run_scenarios.py --real --case T05 --t05-flow
+```
+
+O fluxo complementar usa a pergunta oficial, coleta os dados em outro turno, envia `CONFIRMAR` como nova mensagem humana, consulta o protocolo persistido e repete a confirmação para comprovar ausência de duplicação. Os relatórios registram resposta, status, fontes recuperadas e aceitas, Tools, protocolo, rodadas, duração, erros e IDs correlacionados do JSONL. Perguntas e respostas ficam apenas nos artefatos locais ignorados; logs operacionais continuam sem conteúdo conversacional. `passou`, `parcial` e `falhou` são triagem objetiva e não substituem revisão humana.
+
+A execução completa original de 10/11/2026 foi preservada com 5 aprovações e 5 reprovações. Reavaliações individuais posteriores resultaram em T02, T06, T07 e T08 aprovados; T03 permaneceu `sem_evidencia`. O consolidado mais recente é 9 aprovados e 1 reprovado, composto por execuções distintas e não apresentado como uma nova execução completa T01–T10. Consulte `docs/evidencias_sdd/TSK-012.md` para rastreabilidade e limitações.
+
+Testes locais do harness, sem rede e sem chave verdadeira:
+
+```powershell
+python -m pytest -q tests/test_scenarios.py
+```
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
@@ -348,7 +383,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-011 foi concluída após revisão técnica do commit `8817bd1` e correção da rastreabilidade por chamada de recuperação. A próxima etapa planejada é a TSK-012, avaliação completa dos dez cenários; ela não foi iniciada nesta entrega.
+A TSK-012 foi concluída após implementação, execuções reais e revisão humana. A TSK-013 permanece pendente e não foi iniciada nesta entrega.
 
 ## Referências de rastreabilidade
 
