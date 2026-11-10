@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-009 concluídas; validação de segurança revisada e aprovada.
+**Estado:** TSK-001 a TSK-009 concluídas; TSK-010 implementada e aguardando revisão humana.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -278,6 +278,44 @@ python scripts/smoke_test_safety.py
 
 O validador é deliberadamente conservador. Ele exige evidência também para perguntas sobre regras, procedimentos e serviços acadêmicos, mesmo sem termos numéricos; saudações e conversa simples continuam permitidas sem RAG. Ele comprova origem dos metadados, associação das citações e consistência de fatos numéricos explícitos, mas não pretende provar toda afirmação possível em linguagem natural.
 
+## Atendimento interativo no terminal — TSK-010
+
+O projeto representa o Instituto Horizonte, instituição fictícia, e usa somente dados acadêmicos simulados. Antes do primeiro atendimento, prepare o banco e o índice:
+
+```powershell
+python scripts/init_db.py
+python scripts/index_documents.py
+```
+
+Configure `GROQ_API_KEY` pelo `.env` local ignorado pelo Git ou pela variável de ambiente e inicie uma das formas equivalentes:
+
+```powershell
+python -m instituto_horizonte --chat
+instituto-horizonte --chat
+```
+
+O comportamento padrão continua sendo apenas validar a configuração. `--require-api-key` também permanece disponível.
+
+Comandos locais da conversa:
+
+- `/ajuda`: mostra instruções;
+- `/sair`: encerra sem enviar o comando ao modelo;
+- `CONFIRMAR` e `CANCELAR`: mensagens humanas de negócio, usadas separadamente quando houver resumo pendente.
+
+Exemplo ilustrativo da apresentação:
+
+```text
+Você: Meu protocolo SOL-1001 já foi resolvido?
+
+Instituto Horizonte:
+O protocolo SOL-1001 está com status em_analise.
+
+Status: respondida
+Protocolo: SOL-1001
+```
+
+Uma única instância do agente e um identificador opaco são usados durante toda a sessão, preservando checkpointer e rascunhos. Linhas vazias e comandos locais não chamam Groq. Ctrl+C, EOF e caracteres incompatíveis com CP1252 são tratados sem traceback esperado.
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
@@ -298,7 +336,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-009 foi concluída após revisão técnica e correção da classificação de perguntas normativas sem evidência. A próxima etapa planejada é a TSK-010, CLI interativa; ela não foi iniciada nesta entrega.
+A TSK-010 está implementada e permanece `Em andamento` até revisão humana. A TSK-011, observabilidade e tratamento adicional de falhas, não foi iniciada.
 
 ## Referências de rastreabilidade
 
