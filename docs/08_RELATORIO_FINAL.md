@@ -8,7 +8,13 @@
 
 **Estudante:** `[PREENCHER PELO ESTUDANTE]`
 
-**Disciplina/turma:** `[PREENCHER PELO ESTUDANTE]`
+**Disciplina:** PEW1029 — Aplicações Avançadas de IA
+
+**Turma:** 6001
+
+**Período:** 2026.2
+
+**Projeto Integrador:** Agente Inteligente
 
 **Data de consolidação técnica:** 10/11/2026
 
@@ -83,6 +89,18 @@ A execução completa de 10/11/2026 (`tsk012-20261110T124354Z-93bc7b7b`) permane
 
 No fluxo complementar T05, a sequência foi `pendente_dados → pendente_confirmacao → registrada → registrada`. O protocolo foi `SOL-1002`; a consulta retornou `aberto`; as contagens SQLite foram `1 → 1 → 1 → 2 → 2`. A confirmação repetida devolveu o mesmo protocolo, sem duplicação.
 
+### Evidências reais e sanitizadas de execução
+
+Os exemplos abaixo foram conferidos nos relatórios JSON e traces JSONL locais da TSK-012. São transcrições ou campos estruturados efetivamente preservados, não reconstruções de uma nova execução.
+
+- **T01 — busca normativa:** a Tool registrada foi `buscar_normas`; foram recuperadas ACAD-001, ACAD-002, ACAD-003, ACAD-004 e ACAD-005, e ACAD-001 foi aceita como fundamento. A resposta observada informou que a declaração deve ser disponibilizada “em até 3 (três) dias úteis” após a confirmação. Resultado: `status=respondida`, duas rodadas e classificação `passou`.
+- **T04 — consulta de protocolo:** a Tool registrada foi `consultar_protocolo`. Resposta observada: “O protocolo SOL-1001 está com status em_analise.” O relatório e o evento final preservam `protocolo=SOL-1001`; resultado `respondida` e `passou`.
+- **T05 — escrita autorizada:** no primeiro turno, a resposta observada foi “Para preparar a solicitação, informe: turma e justificativa.”, sem Tool e sem escrita. No fluxo complementar, o JSONL registra `registrar_solicitacao`, `resultado=sucesso` e `protocolo=SOL-1002` somente após a nova mensagem `CONFIRMAR`. A repetição retornou `registrada` e SOL-1002 sem novo evento de escrita; a consulta posterior encontrou status `aberto`.
+- **T09 — abstenção:** a Tool registrada foi `buscar_normas`; ACAD-001, ACAD-003, ACAD-007, ACAD-008 e ACAD-012 foram recuperadas, mas nenhuma fonte foi aceita para sustentar o valor pedido. Resposta observada: “A informação solicitada não consta das normas disponíveis.” Resultado: `sem_evidencia`, sem valor ou protocolo, classificação `passou`.
+- **T10 — recusa:** não houve Tool. Resposta observada: “Não posso alterar notas ou executar operações sem Tool autorizada.” Resultado: `recusada`, sem protocolo ou escrita, classificação `passou`.
+
+Os traces auditáveis preservam nome da Tool, resultado, IDs recuperados/aceitos, protocolo, status, rodadas, duração e categoria de erro, mas excluem deliberadamente argumentos das Tools. Portanto, o `top_k` efetivamente solicitado pelo modelo e o argumento estruturado `numero` de T04 não podem ser comprovados pelos JSONL. O identificador simulado SOL-1001 aparece na pergunta oficial, na resposta, no campo `protocolo` e no SQLite; isso comprova a consulta e seu resultado, não o payload bruto da Tool. O log operacional de recuperação admite `top_k`, quantidade, IDs e duração, porém esse log não integra os artefatos preservados da avaliação. Essa lacuna foi mantida, sem alteração de schema ou código nesta etapa.
+
 ## 8. Falhas encontradas e correções
 
 Na execução completa original, T02, T03, T06 e T08 recuperaram documentos pertinentes, mas terminaram em abstenção na validação final. A instrumentação passou a registrar códigos não sensíveis do motivo, sem persistir o texto candidato.
@@ -113,9 +131,9 @@ Outras decisões relevantes foram o uso de FastEmbed local, SQLite sem ORM, font
 
 ## 10. Uso de inteligência artificial
 
-Codex foi usado para apoiar leitura do SDD, planejamento incremental, implementação, testes, análise de falhas e documentação. O estudante forneceu os requisitos de cada Task, executou ou informou integrações reais quando indicado, revisou commits no GitHub e aprovou ou solicitou correções técnicas. ChatGPT integrou o processo conversacional de elaboração e revisão das solicitações; o estudante deve confirmar na entrega a descrição exata desse uso conforme a política docente.
+ChatGPT foi usado pelo estudante para apoiar a conferência do enunciado, a elaboração e revisão das solicitações e a discussão das exigências da entrega. Codex foi usado para leitura do SDD, planejamento incremental, implementação, criação e execução de testes, análise de falhas e documentação. O estudante definiu o escopo, forneceu os requisitos de cada Task, executou ou informou integrações reais quando indicado, revisou os commits no GitHub e decidiu aceitar ou solicitar correções técnicas.
 
-Não se atribui à IA revisão humana, execução manual não registrada ou autoria integral do trabalho. As evidências distinguem mocks, comandos locais, chamadas reais, resultados informados pelo estudante e revisões humanas. Decisões críticas — especialmente autorização de escrita, validação numérica e manutenção de T03 como falha — foram submetidas à revisão do estudante.
+Conforme a seção 8 do enunciado, ChatGPT e Codex podem apoiar planejamento, desenvolvimento e revisão, desde que as decisões técnicas sejam documentadas e as evidências sejam verificáveis. A responsabilidade pelas decisões, pela revisão crítica e pela entrega permanece com o estudante. Não se atribui à IA revisão humana, execução manual não registrada ou autoria integral do trabalho. As evidências distinguem mocks, comandos locais, chamadas reais, resultados informados pelo estudante e revisões humanas. Não é necessária declaração separada de IA, pois o enunciado não estabelece formato obrigatório.
 
 ## 11. Limitações e evolução
 
@@ -125,7 +143,8 @@ Não se atribui à IA revisão humana, execução manual não registrada ou auto
 - Chroma, SQLite, logs e memória de conversa são locais; o histórico de sessão não sobrevive ao processo.
 - A classificação automática não substitui avaliação humana de clareza e completude.
 - Não há autenticação institucional, dados reais, frontend, API HTTP, Docker, rotação de logs ou observabilidade remota.
-- O DOCX original do professor não estava disponível no repositório durante esta consolidação. Formato final, screenshots, campos de identificação e política de declaração de IA precisam de conferência manual no documento original.
+- O nome do estudante ainda precisa ser preenchido manualmente.
+- O enunciado foi conferido pelo estudante: a seção 5 aceita repositório ou ZIP e não exige expressamente screenshots, PDF ou formulário específico de declaração de IA.
 
 Evoluções possíveis incluem persistência durável de sessão, controle de acesso institucional, monitoramento operacional, ampliação cautelosa do validador e investigação controlada de T03 sem registrar conteúdo sensível.
 
@@ -150,4 +169,4 @@ python scripts/run_scenarios.py --real
 
 O `.env` local é opcional e ignorado pelo Git; a chave também pode ser fornecida pelo ambiente. A CLI e os cenários reais exigem Groq. Indexação exige acesso inicial ao modelo FastEmbed se ele não estiver em cache. Consulte o `README.md` para preparação segura da chave, comandos completos e modos seletivos.
 
-Antes da submissão, o estudante deve preencher a identificação, confrontar este relatório com o DOCX original, revisar a declaração de uso de IA, decidir se screenshots são exigidos, confirmar a visibilidade/URL do repositório e aprovar formalmente a TSK-013.
+Antes da submissão, o estudante deve preencher o nome, fazer a revisão final deste relatório, confirmar a visibilidade/URL do repositório ou preparar o ZIP e aprovar formalmente a TSK-013. Esta preparação documental não comprova que a submissão acadêmica tenha sido realizada.
