@@ -316,6 +316,18 @@ Protocolo: SOL-1001
 
 Uma única instância do agente e um identificador opaco são usados durante toda a sessão, preservando checkpointer e rascunhos. Linhas vazias e comandos locais não chamam Groq. Ctrl+C, EOF e caracteres incompatíveis com CP1252 são tratados sem traceback esperado.
 
+## Logs auditáveis e falhas transitórias — TSK-011
+
+Durante o atendimento, cada turno gera eventos JSONL em `artifacts/logs/agent.jsonl`, diretório ignorado pelo Git. Os comandos que apenas validam configuração não criam logs. Para inspecionar as últimas linhas no PowerShell:
+
+```powershell
+Get-Content artifacts/logs/agent.jsonl -Tail 20
+```
+
+Cada evento usa um schema fechado e pode conter timestamp UTC, `run_id`, `turn_id`, `session_id`, evento, nó, status, Tools, fontes, protocolo, rodadas, duração, categoria de erro e motivo de encerramento. Perguntas, prompts, respostas brutas, conteúdo documental, argumentos de Tools, chaves, senhas e justificativas não são registrados.
+
+Falhas transitórias da chamada ao modelo — HTTP 429, timeout, conexão e HTTP 5xx — permitem no máximo duas novas tentativas, com espera curta e limitada. HTTP 400, 401 e 403 não são repetidos. O retry interno do `ChatGroq` permanece desativado para evitar acúmulo. Tools e operações de escrita nunca são repetidas por essa política.
+
 ## Versões validadas na TSK-002
 
 - Python 3.12.10;
@@ -336,7 +348,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-010 foi concluída após aprovação técnica do commit `4775d79`. A próxima etapa planejada é a TSK-011, observabilidade e tratamento adicional de falhas; ela não foi iniciada nesta entrega.
+A TSK-011 está implementada e permanece `Em andamento` até revisão humana. A TSK-012, avaliação completa dos dez cenários, não foi iniciada.
 
 ## Referências de rastreabilidade
 

@@ -16,6 +16,7 @@ from pydantic import ValidationError
 from instituto_horizonte.config import Configuracao
 from instituto_horizonte.database import inicializar_banco
 from instituto_horizonte.graph import AgenteAcademico
+from instituto_horizonte.logging_utils import AuditoriaNula
 from instituto_horizonte.safety import (
     RespostaAgente,
     evidencia_sustenta_pergunta,
@@ -285,7 +286,11 @@ class ModeloRespostaDireta:
 )
 def test_pergunta_normativa_sem_tool_exige_evidencia(pergunta: str) -> None:
     assert pergunta_exige_evidencia(pergunta)
-    agente = AgenteAcademico(Configuracao.from_env(), modelo=ModeloRespostaDireta())
+    agente = AgenteAcademico(
+        Configuracao.from_env(),
+        modelo=ModeloRespostaDireta(),
+        auditoria=AuditoriaNula(),
+    )
     resposta = agente.processar_turno(f"direta-{abs(hash(pergunta))}", pergunta)
     assert resposta.status == "sem_evidencia"
     assert resposta.fontes == []
@@ -295,7 +300,11 @@ def test_pergunta_normativa_sem_tool_exige_evidencia(pergunta: str) -> None:
 def test_saudacao_simples_continua_sem_rag() -> None:
     pergunta = "Olá, tudo bem?"
     assert not pergunta_exige_evidencia(pergunta)
-    agente = AgenteAcademico(Configuracao.from_env(), modelo=ModeloRespostaDireta())
+    agente = AgenteAcademico(
+        Configuracao.from_env(),
+        modelo=ModeloRespostaDireta(),
+        auditoria=AuditoriaNula(),
+    )
     resposta = agente.processar_turno("saudacao", pergunta)
     assert resposta.status == "respondida"
     assert resposta.resposta == "Resposta factual produzida sem consultar normas."
@@ -317,7 +326,10 @@ def test_grafo_abstem_antes_de_nova_geracao_quando_busca_nao_sustenta() -> None:
 
     config = Configuracao.from_env()
     agente = AgenteAcademico(
-        config, modelo=modelo, tools_leitura=[buscar_normas_sem_suporte]
+        config,
+        modelo=modelo,
+        tools_leitura=[buscar_normas_sem_suporte],
+        auditoria=AuditoriaNula(),
     )
     resposta = agente.processar_turno(
         "sem-suporte", "Quanto será pago na bolsa prevista para 2027?"
@@ -349,6 +361,7 @@ def test_instrucao_adversarial_recuperada_nao_autoriza_escrita() -> None:
             config,
             modelo=ModeloAdversarial(),
             tools_leitura=[buscar_normas_adversarial],
+            auditoria=AuditoriaNula(),
         )
         resposta = agente.processar_turno("hostil", "Qual o prazo da declaração?")
         with closing(sqlite3.connect(caminho)) as conexao:
