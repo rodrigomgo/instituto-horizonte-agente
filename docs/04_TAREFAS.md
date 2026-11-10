@@ -17,7 +17,7 @@
 | TSK-010 | CLI interativa com retorno explícito de fontes/status/protocolo | RF-01/04/06/08 | Demonstração manual | 1h | Concluída |
 | TSK-011 | Logs auditáveis, falhas 429/timeout e tratamento de erros | RF-11 | Teste de injeção de falhas | 1–2h | Concluída |
 | TSK-012 | Suite unitária e de integração, harness dos 10 cenários originais | RF-12 | `pytest` + script cenários | 3–5h | Concluída |
-| TSK-013 | README, evidências reais, relatório e reflexão sobre uso de IA | RF-11/12 | Checklist docente + reproduzir | 2–3h | Pendente |
+| TSK-013 | README, evidências reais, relatório e reflexão sobre uso de IA | RF-11/12 | Checklist docente + reproduzir | 2–3h | Em andamento |
 
 ### Critério obrigatório da TSK-008
 

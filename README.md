@@ -383,7 +383,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-012 foi concluída após implementação, execuções reais e revisão humana. A TSK-013 permanece pendente e não foi iniciada nesta entrega.
+A TSK-012 foi concluída após implementação, execuções reais e revisão humana. A TSK-013 está em andamento: o [relatório final](docs/08_RELATORIO_FINAL.md) e sua [evidência SDD](docs/evidencias_sdd/TSK-013.md) foram preparados, mas ainda dependem da conferência do enunciado original e da revisão final do estudante.
 
 ## Referências de rastreabilidade
 
