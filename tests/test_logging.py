@@ -90,7 +90,7 @@ class ModeloDuasNormas:
     def invoke(self, messages: list[Any]) -> AIMessage:
         self.chamadas += 1
         if isinstance(messages[-1], ToolMessage):
-            return AIMessage(content="O prazo é 3 dias, conforme ACAD-001.")
+            return AIMessage(content="O prazo é 3 dias úteis, conforme ACAD-001.")
         return AIMessage(
             content="",
             tool_calls=[

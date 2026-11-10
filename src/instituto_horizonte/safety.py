@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
+from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -32,7 +33,66 @@ MotivoRejeicao = Literal[
 
 PADRAO_FONTE = re.compile(r"^ACAD-\d{3}$")
 PADRAO_CITACAO = re.compile(r"\bACAD[-‑–—](\d{3})\b", re.IGNORECASE)
-PADRAO_NUMERO = re.compile(r"(?<![\w‑–—-])\d+(?:[.,]\d+)?%?")
+PADRAO_IDENTIFICADOR = re.compile(r"\b(?:acad|sol)[-‐‑–—]\d+\b")
+PADRAO_MARCADOR_LISTA = re.compile(r"(?m)^\s*\d+[.)]\s+")
+PADRAO_VALOR_DIGITOS = r"(?:\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)"
+PALAVRAS_NUMERICAS = {
+    "zero": 0,
+    "um": 1,
+    "uma": 1,
+    "dois": 2,
+    "duas": 2,
+    "tres": 3,
+    "quatro": 4,
+    "cinco": 5,
+    "seis": 6,
+    "sete": 7,
+    "oito": 8,
+    "nove": 9,
+    "dez": 10,
+    "onze": 11,
+    "doze": 12,
+    "treze": 13,
+    "quatorze": 14,
+    "catorze": 14,
+    "quinze": 15,
+    "dezesseis": 16,
+    "dezessete": 17,
+    "dezoito": 18,
+    "dezenove": 19,
+    "vinte": 20,
+    "trinta": 30,
+    "quarenta": 40,
+    "cinquenta": 50,
+    "sessenta": 60,
+    "setenta": 70,
+    "oitenta": 80,
+    "noventa": 90,
+    "cem": 100,
+    "cento": 100,
+}
+PADRAO_PALAVRA_NUMERICA = "(?:" + "|".join(
+    sorted(PALAVRAS_NUMERICAS, key=len, reverse=True)
+) + ")"
+PADRAO_VALOR_EXTENSO = rf"{PADRAO_PALAVRA_NUMERICA}(?:\s+e\s+{PADRAO_PALAVRA_NUMERICA}){{0,2}}"
+PADRAO_VALOR = rf"(?:{PADRAO_VALOR_DIGITOS}|{PADRAO_VALOR_EXTENSO})"
+PADRAO_PERCENTUAL = re.compile(
+    rf"\b(?P<valor>{PADRAO_VALOR})\s*(?:%|por\s+cento)(?!\w)"
+)
+PADRAO_DIAS = re.compile(
+    rf"\b(?P<valor>{PADRAO_VALOR})\s+dias?"
+    rf"(?:\s+(?P<tipo>uteis|corridos))?\b"
+)
+PADRAO_DIAS_DESCONHECIDO = re.compile(
+    r"\b(?P<valor>[a-z]+(?:\s+e\s+[a-z]+){0,2})\s+dias?"
+    r"(?:\s+(?:uteis|corridos))?\b"
+)
+PADRAO_PERCENTUAL_DESCONHECIDO = re.compile(
+    r"\b(?P<valor>[a-z]+(?:\s+e\s+[a-z]+){0,2})\s+por\s+cento\b"
+)
+PADRAO_MOEDA_BRL = re.compile(rf"\br\$\s*(?P<valor>{PADRAO_VALOR_DIGITOS})\b")
+PADRAO_NUMERO_SIMPLES = re.compile(rf"(?<![\w‐‑–—-]){PADRAO_VALOR_DIGITOS}")
+FatoNumerico = tuple[str, str]
 TERMOS_FATO_ESPECIFICO = {
     "frequencia",
     "percentual",
@@ -147,8 +207,92 @@ def _tokens(texto: str) -> set[str]:
     }
 
 
-def _numeros(texto: str) -> set[str]:
-    return {numero.replace(",", ".") for numero in PADRAO_NUMERO.findall(texto)}
+def _normalizar_decimal(valor: str) -> str | None:
+    texto = valor
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+(?:,\d+)?", texto):
+        texto = texto.replace(".", "").replace(",", ".")
+    else:
+        texto = texto.replace(",", ".")
+    try:
+        numero = Decimal(texto)
+    except InvalidOperation:
+        return None
+    normalizado = format(numero, "f")
+    if "." in normalizado:
+        normalizado = normalizado.rstrip("0").rstrip(".")
+    return normalizado
+
+
+def _normalizar_numero_extenso(valor: str) -> str | None:
+    partes = valor.split()
+    palavras = [parte for parte in partes if parte != "e"]
+    if any(palavra not in PALAVRAS_NUMERICAS for palavra in palavras):
+        return None
+    numeros = [PALAVRAS_NUMERICAS[palavra] for palavra in palavras]
+    if not numeros:
+        return None
+    if len(numeros) == 1:
+        return str(numeros[0])
+    if len(numeros) == 2 and numeros[0] in range(20, 100, 10) and 0 < numeros[1] < 10:
+        return str(numeros[0] + numeros[1])
+    return None
+
+
+def _normalizar_valor(valor: str) -> str | None:
+    return (
+        _normalizar_decimal(valor)
+        if valor[0].isdigit()
+        else _normalizar_numero_extenso(valor)
+    )
+
+
+def _numeros(texto: str) -> set[FatoNumerico]:
+    """Extrai fatos comparáveis, ignorando IDs e marcadores estruturais de lista."""
+
+    normalizado = _normalizar(texto)
+    normalizado = PADRAO_IDENTIFICADOR.sub(
+        lambda match: " " * len(match.group()), normalizado
+    )
+    normalizado = PADRAO_MARCADOR_LISTA.sub(
+        lambda match: " " * len(match.group()), normalizado
+    )
+    fatos: set[FatoNumerico] = set()
+    intervalos: list[tuple[int, int]] = []
+
+    def ocupado(inicio: int, fim: int) -> bool:
+        return any(
+            inicio < existente_fim and fim > existente_inicio
+            for existente_inicio, existente_fim in intervalos
+        )
+
+    def adicionar(tipo: str, valor: str, inicio: int, fim: int) -> None:
+        interpretado = _normalizar_valor(valor)
+        fatos.add((tipo if interpretado is not None else "numero_desconhecido", interpretado or valor))
+        intervalos.append((inicio, fim))
+
+    for match in PADRAO_MOEDA_BRL.finditer(normalizado):
+        adicionar("moeda_brl", match.group("valor"), *match.span())
+    for match in PADRAO_PERCENTUAL.finditer(normalizado):
+        if not ocupado(*match.span()):
+            adicionar("percentual", match.group("valor"), *match.span())
+    for match in PADRAO_DIAS.finditer(normalizado):
+        if not ocupado(*match.span()):
+            tipo = match.group("tipo")
+            adicionar(f"dias_{tipo}" if tipo else "dias", match.group("valor"), *match.span())
+    for padrao in (PADRAO_PERCENTUAL_DESCONHECIDO, PADRAO_DIAS_DESCONHECIDO):
+        for match in padrao.finditer(normalizado):
+            if not ocupado(*match.span()):
+                adicionar("numero_desconhecido", match.group("valor"), *match.span())
+    for match in PADRAO_NUMERO_SIMPLES.finditer(normalizado):
+        if ocupado(*match.span()):
+            continue
+        valor = _normalizar_decimal(match.group())
+        if valor is None:
+            continue
+        inteiro = Decimal(valor)
+        tipo = "ano" if inteiro == inteiro.to_integral() and 1900 <= inteiro <= 2199 else "numero"
+        fatos.add((tipo, valor))
+    return fatos
 
 
 def pergunta_exige_evidencia(pergunta: str) -> bool:
@@ -202,7 +346,11 @@ def _diagnosticar_sustentacao(
         return "sem_sobreposicao"
 
     numeros_pergunta = _numeros(pergunta)
-    numeros_corpus = _numeros(corpus)
+    numeros_corpus = {
+        fato for fato in _numeros(corpus) if fato[0] != "numero_desconhecido"
+    }
+    if any(fato[0] == "numero_desconhecido" for fato in numeros_pergunta):
+        return "numero_pergunta_ausente"
     if numeros_pergunta and not numeros_pergunta.issubset(numeros_corpus):
         return "numero_pergunta_ausente"
 
@@ -210,6 +358,8 @@ def _diagnosticar_sustentacao(
         return "fato_numerico_sem_evidencia"
 
     numeros_resposta = _numeros(resposta)
+    if any(fato[0] == "numero_desconhecido" for fato in numeros_resposta):
+        return "numero_resposta_incompativel"
     if numeros_resposta and not numeros_resposta.issubset(numeros_corpus):
         return "numero_resposta_incompativel"
     return None

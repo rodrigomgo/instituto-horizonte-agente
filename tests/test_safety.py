@@ -19,6 +19,7 @@ from instituto_horizonte.graph import AgenteAcademico
 from instituto_horizonte.logging_utils import AuditoriaNula
 from instituto_horizonte.safety import (
     RespostaAgente,
+    _numeros,
     evidencia_sustenta_pergunta,
     pergunta_exige_evidencia,
     validar_resposta_backend,
@@ -191,6 +192,116 @@ def test_diagnostico_valido_preserva_aprovacao_sem_motivo() -> None:
     assert validada.status == "respondida"
     assert validada.fontes == ["ACAD-001"]
     assert motivo is None
+
+
+def validar_fato_numerico(
+    *, pergunta: str, resposta: str, conteudo: str
+) -> tuple[RespostaAgente, str | None]:
+    del pergunta
+    return validar_resposta_backend_diagnosticada(
+        resposta_candidata=f"{resposta} Conforme ACAD-002.",
+        pergunta="Qual é o prazo, frequência ou valor da regra?",
+        resultados_normas=[
+            norma(
+                identificador="ACAD-002",
+                conteudo=conteudo,
+            )
+        ],
+        resultado_protocolo=None,
+        erros=[],
+    )
+
+
+@pytest.mark.parametrize(
+    ("resposta", "conteudo"),
+    [
+        ("A frequência mínima é 75 por cento.", "A frequência mínima é 75%."),
+        ("A frequência mínima é setenta e cinco por cento.", "A frequência mínima é 75%."),
+        ("O prazo é de três dias úteis.", "O prazo é de 3 dias úteis."),
+        ("O prazo é de cinco dias corridos.", "O prazo é de 5 dias corridos."),
+    ],
+)
+def test_formas_numericas_equivalentes_sao_aceitas(
+    resposta: str, conteudo: str
+) -> None:
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é a regra acadêmica aplicável?",
+        resposta=resposta,
+        conteudo=conteudo,
+    )
+    assert validada.status == "respondida"
+    assert motivo is None
+
+
+@pytest.mark.parametrize(
+    ("resposta", "conteudo"),
+    [
+        ("A frequência mínima é 85%.", "A frequência mínima é 75%."),
+        ("O prazo é de 10 dias corridos.", "O prazo é de 5 dias corridos."),
+        ("O prazo é de 3 dias úteis.", "O prazo é de 3 dias corridos."),
+        ("O valor é R$ 950,00.", "O valor é R$ 900,00."),
+        ("A regra vale para 2026.", "A regra vale para 2027."),
+        ("O prazo é de dez dias.", "O prazo é de 5 dias."),
+    ],
+)
+def test_fatos_numericos_incompativeis_continuam_rejeitados(
+    resposta: str, conteudo: str
+) -> None:
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é a regra acadêmica aplicável?",
+        resposta=resposta,
+        conteudo=conteudo,
+    )
+    assert validada.status == "sem_evidencia"
+    assert motivo == "numero_resposta_incompativel"
+
+
+def test_marcadores_de_lista_nao_sao_fatos_numericos() -> None:
+    resposta = "1. Acesse o portal.\n2. Confira a frequência mínima de 75%.\n3) Confirme."
+    assert _numeros(resposta) == {("percentual", "75")}
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é a frequência mínima?",
+        resposta=resposta,
+        conteudo="A frequência mínima é 75%.",
+    )
+    assert validada.status == "respondida"
+    assert motivo is None
+
+
+def test_numero_de_um_dia_e_decimal_nao_sao_marcadores() -> None:
+    assert _numeros("O prazo é de 1 dia.") == {("dias", "1")}
+    assert _numeros("A nota é 1.5.") == {("numero", "1.5")}
+
+
+def test_ids_nao_sao_fatos_numericos() -> None:
+    assert _numeros("Consulte ACAD-002 e o protocolo SOL-1001.") == set()
+
+
+def test_valor_brasileiro_e_ano_sao_normalizados() -> None:
+    assert _numeros("Edital 2027: valor de R$ 1.200,50.") == {
+        ("ano", "2027"),
+        ("moeda_brl", "1200.5"),
+    }
+
+
+def test_numero_extenso_desconhecido_e_rejeitado_conservadoramente() -> None:
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é o prazo aplicável?",
+        resposta="O prazo é de cento e vinte dias.",
+        conteudo="O prazo é de 120 dias.",
+    )
+    assert validada.status == "sem_evidencia"
+    assert motivo == "numero_resposta_incompativel"
+
+
+def test_palavra_numerica_fora_do_vocabulario_nao_escapa_da_validacao() -> None:
+    validada, motivo = validar_fato_numerico(
+        pergunta="Qual é o prazo aplicável?",
+        resposta="O prazo é de mil dias.",
+        conteudo="O prazo é de 5 dias.",
+    )
+    assert validada.status == "sem_evidencia"
+    assert motivo == "numero_resposta_incompativel"
 
 
 def test_fonte_inventada_substitui_texto_por_abstencao() -> None:
