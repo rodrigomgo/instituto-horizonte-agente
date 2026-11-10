@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-009 concluídas; TSK-010 implementada e aguardando revisão humana.
+**Estado:** TSK-001 a TSK-010 concluídas; CLI interativa revisada e aprovada.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -336,7 +336,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-010 está implementada e permanece `Em andamento` até revisão humana. A TSK-011, observabilidade e tratamento adicional de falhas, não foi iniciada.
+A TSK-010 foi concluída após aprovação técnica do commit `4775d79`. A próxima etapa planejada é a TSK-011, observabilidade e tratamento adicional de falhas; ela não foi iniciada nesta entrega.
 
 ## Referências de rastreabilidade
 
