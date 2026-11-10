@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-012 concluídas; avaliação automatizada e evidências reais consolidadas.
+**Estado:** TSK-001 a TSK-013 concluídas; implementação, avaliação automatizada, evidências reais e documentação acadêmica finalizadas.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -381,9 +381,9 @@ LangGraph, FastEmbed, Chroma e a infraestrutura SQLite foram adicionados somente
 
 Os dados e perguntas oficiais não podem ser alterados para facilitar avaliação. A base de protocolos de teste será criada pelo projeto, pois **não foi fornecida** pelo professor. Nenhum `.env` secreto deve entrar no repositório. Saídas locais (`.local/`, `artifacts/`) e ambientes virtuais são ignorados.
 
-## Próxima etapa
+## Estado da entrega
 
-A TSK-012 foi concluída após implementação, execuções reais e revisão humana. A TSK-013 está em andamento: o [relatório final](docs/08_RELATORIO_FINAL.md) e sua [evidência SDD](docs/evidencias_sdd/TSK-013.md) foram preparados, mas ainda dependem da conferência do enunciado original e da revisão final do estudante.
+As TSK-001 a TSK-013 foram concluídas após implementação, testes e revisões técnicas/documentais. O enunciado original foi conferido e seus requisitos de entrega foram confrontados com o [relatório final](docs/08_RELATORIO_FINAL.md) e a [evidência SDD da TSK-013](docs/evidencias_sdd/TSK-013.md). A conclusão do projeto não significa que a submissão acadêmica tenha sido realizada ou avaliada pelo professor.
 
 ## Referências de rastreabilidade
 

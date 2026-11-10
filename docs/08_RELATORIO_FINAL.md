@@ -6,7 +6,9 @@
 
 **Instituição simulada:** Instituto Horizonte (fictício)
 
-**Estudante:** `[PREENCHER PELO ESTUDANTE]`
+**Estudante:** Rodrigo Marcio Gonçalves Oliveira
+
+**Matrícula:** 202603108112
 
 **Disciplina:** PEW1029 — Aplicações Avançadas de IA
 
@@ -14,7 +16,7 @@
 
 **Período:** 2026.2
 
-**Projeto Integrador:** Agente Inteligente
+**Projeto Integrador:** Agente Inteligente de Atendimento Acadêmico
 
 **Data de consolidação técnica:** 10/11/2026
 
@@ -143,7 +145,6 @@ Conforme a seção 8 do enunciado, ChatGPT e Codex podem apoiar planejamento, de
 - Chroma, SQLite, logs e memória de conversa são locais; o histórico de sessão não sobrevive ao processo.
 - A classificação automática não substitui avaliação humana de clareza e completude.
 - Não há autenticação institucional, dados reais, frontend, API HTTP, Docker, rotação de logs ou observabilidade remota.
-- O nome do estudante ainda precisa ser preenchido manualmente.
 - O enunciado foi conferido pelo estudante: a seção 5 aceita repositório ou ZIP e não exige expressamente screenshots, PDF ou formulário específico de declaração de IA.
 
 Evoluções possíveis incluem persistência durável de sessão, controle de acesso institucional, monitoramento operacional, ampliação cautelosa do validador e investigação controlada de T03 sem registrar conteúdo sensível.
@@ -169,4 +170,4 @@ python scripts/run_scenarios.py --real
 
 O `.env` local é opcional e ignorado pelo Git; a chave também pode ser fornecida pelo ambiente. A CLI e os cenários reais exigem Groq. Indexação exige acesso inicial ao modelo FastEmbed se ele não estiver em cache. Consulte o `README.md` para preparação segura da chave, comandos completos e modos seletivos.
 
-Antes da submissão, o estudante deve preencher o nome, fazer a revisão final deste relatório, confirmar a visibilidade/URL do repositório ou preparar o ZIP e aprovar formalmente a TSK-013. Esta preparação documental não comprova que a submissão acadêmica tenha sido realizada.
+O relatório e os requisitos foram revisados pelo estudante. A submissão ainda deverá ocorrer por repositório ou ZIP, conforme a opção escolhida; esta preparação documental não comprova que a submissão acadêmica tenha sido realizada nem que o professor tenha avaliado o projeto.
