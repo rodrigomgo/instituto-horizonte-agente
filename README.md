@@ -1,7 +1,7 @@
 # Instituto Horizonte — Agente Inteligente (Projeto Integrador)
 
 **Versão:** 0.1 — implementação incremental orientada pelos documentos SDD.
-**Estado:** TSK-001 a TSK-011 concluídas; TSK-012 em andamento e pendente de execução/revisão real dos dez cenários.
+**Estado:** TSK-001 a TSK-012 concluídas; avaliação automatizada e evidências reais consolidadas.
 
 Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas de protocolos SQLite, registro autorizado de solicitações, LangChain, LangGraph, Pydantic, observabilidade e testes de dez cenários oficiais.
 
@@ -24,7 +24,7 @@ Projeto acadêmico de IA aplicada: RAG sobre 12 documentos fictícios, consultas
 - CLI conversacional e auditoria JSONL sanitizada por turno.
 - Harness automatizado dos dez cenários oficiais, com execução real somente sob `--real`.
 
-A classificação automática do harness verifica critérios objetivos. A avaliação semântica final e a conclusão da TSK-012 dependem de execução real e revisão humana.
+A classificação automática do harness verifica critérios objetivos e foi complementada por execução real e revisão humana na TSK-012.
 
 ## Conteúdo de referência
 
@@ -355,6 +355,8 @@ python scripts/run_scenarios.py --real --case T05 --t05-flow
 
 O fluxo complementar usa a pergunta oficial, coleta os dados em outro turno, envia `CONFIRMAR` como nova mensagem humana, consulta o protocolo persistido e repete a confirmação para comprovar ausência de duplicação. Os relatórios registram resposta, status, fontes recuperadas e aceitas, Tools, protocolo, rodadas, duração, erros e IDs correlacionados do JSONL. Perguntas e respostas ficam apenas nos artefatos locais ignorados; logs operacionais continuam sem conteúdo conversacional. `passou`, `parcial` e `falhou` são triagem objetiva e não substituem revisão humana.
 
+A execução completa original de 10/11/2026 foi preservada com 5 aprovações e 5 reprovações. Reavaliações individuais posteriores resultaram em T02, T06, T07 e T08 aprovados; T03 permaneceu `sem_evidencia`. O consolidado mais recente é 9 aprovados e 1 reprovado, composto por execuções distintas e não apresentado como uma nova execução completa T01–T10. Consulte `docs/evidencias_sdd/TSK-012.md` para rastreabilidade e limitações.
+
 Testes locais do harness, sem rede e sem chave verdadeira:
 
 ```powershell
@@ -381,7 +383,7 @@ Os dados e perguntas oficiais não podem ser alterados para facilitar avaliaçã
 
 ## Próxima etapa
 
-A TSK-012 está em andamento. O harness e os testes locais foram implementados, mas a Task somente poderá ser marcada como concluída depois da execução real completa T01–T10 e da revisão humana dos resultados. A TSK-013 não foi iniciada.
+A TSK-012 foi concluída após implementação, execuções reais e revisão humana. A TSK-013 permanece pendente e não foi iniciada nesta entrega.
 
 ## Referências de rastreabilidade
 
